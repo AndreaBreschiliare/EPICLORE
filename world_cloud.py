@@ -13,7 +13,7 @@ import io
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
 st.title("🏰 World Architect: Lore & Co-Autor")
 
-# --- INICIALIZAÇÃO SEGURA DE ESTADO (CORREÇÃO DO BUG) ---
+# --- INICIALIZAÇÃO SEGURA DE ESTADO ---
 if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
 if "erros_ia" not in st.session_state: st.session_state.erros_ia = {}
 if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = ""
@@ -166,9 +166,28 @@ with tab_chat:
                     st.session_state.messages.append({"role": "assistant", "content": res.text})
                 except Exception as e: st.error(str(e))
 
-# === ABA 3: AUDITORIA ===
+# === ABA 3: AUDITORIA (COM METODOLOGIA) ===
 with tab_aval:
-    st.header("⚖️ Auditoria")
+    st.header("⚖️ Auditoria de Worldbuilding")
+    
+    # --- METODOLOGIA EXPLICATIVA ---
+    with st.expander("📘 Metodologia de Avaliação (Os 10 Pilares)", expanded=False):
+        st.markdown("""
+        **Como a IA avalia seu mundo?**
+        O Auditor assume a personalidade de um Crítico Literário Sênior e analisa 10 pilares fundamentais:
+        
+        1.  **Coerência Interna:** O mundo segue suas próprias regras?
+        2.  **Profundidade Histórica:** Existe um passado tangível (eras, ruínas)?
+        3.  **Cultura e Antropologia:** Os povos têm costumes, roupas e crenças únicas?
+        4.  **Sistema Político:** Há tensões, alianças e governos complexos?
+        5.  **Economia:** Como os recursos moldam os conflitos?
+        6.  **Magia/Tecnologia:** Existem limites, custos e consequências?
+        7.  **Religião e Metafísica:** Os deuses e mitos influenciam a realidade?
+        8.  **Ecologia e Geografia:** O ambiente é vivo e faz sentido?
+        9.  **Conflitos Atuais:** Há tensões imediatas movendo a trama?
+        10. **Singularidade:** O que torna este mundo único em relação a outros?
+        """)
+
     if not api_key: st.warning("Insira a API Key.")
     else:
         if st.button("🔍 Rodar Auditoria"):
@@ -217,7 +236,6 @@ with tab_sugestao:
             elif filtro != "Geral" and filtro in cat: mostrar = True
             if mostrar:
                 with cols[idx % 2]:
-                    # Usa .get com valor default seguro
                     sug = st.session_state.sugestoes_ia.get(cat, "...")
                     st.text_area(f"💡 {cat}", value=sug, height=250, disabled=True)
                 idx += 1
@@ -228,19 +246,17 @@ with tab_sugestao:
         criar_secao_sugestao("Timeline", "Timeline")
         criar_secao_sugestao("Povos", "Povo")
 
-# === ABA 5: INCOERÊNCIAS (ATUALIZADA) ===
+# === ABA 5: INCOERÊNCIAS ===
 with tab_erros:
     st.header("⚡ Detector de Incoerências e Falhas Lógicas")
     
-    # 1. Resumo da Metodologia
     with st.expander("📘 Metodologia do Inquisidor (Como funciona?)", expanded=False):
         st.markdown("""
         **O Método de Cruzamento de Dados (N x N):**
         A IA lê todos os textos simultaneamente e cria uma "matriz de fatos".
-        
-        1.  **Verificação Cronológica:** Ela compara todas as datas mencionadas nas Timelines com as biografias e eventos dos Povos.
-        2.  **Verificação Lógica:** Se um texto diz que "A magia é proibida" e outro diz que "O Rei é um mago", ela aponta o conflito.
-        3.  **Verificação de Recursos:** Ela checa se a economia e os recursos citados em uma parte sustentam as descrições militares em outra.
+        1.  **Verificação Cronológica:** Compara datas nas Timelines com biografias.
+        2.  **Verificação Lógica:** Aponta se regras (ex: magia) são quebradas.
+        3.  **Verificação de Recursos:** Checa se a economia sustenta a descrição militar/social.
         """)
 
     if not api_key: st.warning("Insira a API Key.")
@@ -250,43 +266,25 @@ with tab_erros:
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                     prompt_erros = f"""
-                    ATENÇÃO: Você é um Auditor de Continuidade Lógica.
-                    
-                    TAREFA:
-                    1. Cruzar dados de TODOS os textos para achar contradições.
-                    2. Criar um RESUMO GERAL (Veredito) sobre a consistência do mundo.
-                    3. Listar erros específicos por categoria.
-                    
-                    FORMATO OBRIGATÓRIO DE SAÍDA (JSON):
-                    {{
-                        "resumo_geral": "Escreva aqui um parágrafo resumindo a saúde lógica do mundo. Ex: 'O mundo é consistente, mas a cronologia dos Elfos contradiz a Primeira Era...'",
-                        "detalhes": {{
-                            "Nome da Categoria": "• 🔴 ERRO: ...\\n• 🟡 ALERTA: ...",
-                            "Outra Categoria": "..."
-                        }}
-                    }}
-                    
+                    Auditor Lógico.
+                    TAREFA: 1. Cruzar dados para achar contradições. 2. Criar RESUMO GERAL.
+                    JSON: {{ "resumo_geral": "...", "detalhes": {{ "Categoria": "• 🔴 ERRO: ...", ... }} }}
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
                     """
-                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_erros)
                     dados_json = extrair_json(res.text)
-                    
                     if dados_json:
-                        # Salva o resumo e os detalhes separadamente
                         st.session_state.resumo_erros = dados_json.get("resumo_geral", "Sem resumo.")
                         st.session_state.erros_ia = dados_json.get("detalhes", {})
                         st.success("Varredura completa!")
                     else: st.write(res.text)
                 except Exception as e: st.error(f"Erro: {e}")
 
-    # 2. Exibição do Veredito Geral
     if st.session_state.resumo_erros:
         st.info(f"📝 **Veredito dos Achados:**\n\n{st.session_state.resumo_erros}")
 
-    # 3. Exibição por Categoria
     def criar_secao_erros(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
@@ -299,8 +297,6 @@ with tab_erros:
                 with cols[idx % 2]:
                     val = lore_data.get(cat, "")
                     st.text_area(f"📄 {cat}", value=val, height=150, disabled=True, key=f"view_{cat}")
-                    
-                    # Busca o erro na lista de detalhes
                     erro = st.session_state.erros_ia.get(cat, None)
                     if erro: st.error(f"🚨 **PROBLEMAS:**\n\n{erro}")
                     else: st.success("✅ OK")
@@ -319,6 +315,7 @@ with tab_mapa:
     if mapa_b64: st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi", use_container_width=True)
     else: st.info("Sem mapa.")
     st.markdown("---")
+    st.warning("⚠️ O sistema comprimirá automaticamente.")
     arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
     if arquivo_mapa:
         if st.button("📤 Enviar para a Nuvem"):
