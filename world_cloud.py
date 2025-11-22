@@ -17,8 +17,11 @@ st.title("🏰 World Architect: Lore & Co-Autor")
 if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
 if "erros_ia" not in st.session_state: st.session_state.erros_ia = {}
 if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = ""
+if "auditoria_dados" not in st.session_state: st.session_state.auditoria_dados = []
 if "messages" not in st.session_state: st.session_state.messages = []
 if "glossario" not in st.session_state: st.session_state.glossario = {}
+# NOVO: Estado para o gráfico
+if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = ""
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
 if not firebase_admin._apps:
@@ -76,6 +79,21 @@ def extrair_json(texto):
     except:
         return None
 
+# NOVO: Extrair código DOT do Graphviz
+def extrair_dot(texto):
+    try:
+        # Procura bloco de código graphviz ou dot
+        match = re.search(r"```(?:dot|graphviz)\n(.*?)\n```", texto, re.DOTALL)
+        if match: return match.group(1)
+        # Se não achar bloco, tenta achar o começo e fim do digraph
+        if "digraph" in texto:
+            inicio = texto.find("digraph")
+            fim = texto.rfind("}") + 1
+            return texto[inicio:fim]
+        return None
+    except:
+        return None
+
 def comprimir_imagem(arquivo_upload):
     image = Image.open(arquivo_upload)
     if image.mode in ("RGBA", "P"): image = image.convert("RGB")
@@ -107,8 +125,9 @@ if "erros_ia" not in st.session_state: st.session_state.erros_ia = caches_salvos
 if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = caches_salvos.get("resumo_erros", "")
 if "auditoria_dados" not in st.session_state: st.session_state.auditoria_dados = caches_salvos.get("auditoria", [])
 if "messages" not in st.session_state: st.session_state.messages = caches_salvos.get("chat_history", [])
-# NOVO: Recupera Glossário
 if "glossario" not in st.session_state: st.session_state.glossario = caches_salvos.get("glossario", {})
+# NOVO: Cache do gráfico
+if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = caches_salvos.get("arvore_dot", "")
 
 # --- 5. INTERFACE ---
 st.sidebar.header("Configuração IA")
@@ -137,8 +156,9 @@ except Exception as e:
     st.stop()
 
 # --- ABAS ---
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_mapa = st.tabs([
-    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", "📚 Glossário", "🗺️ Mapa"
+# Adicionado "🌳 Genealogia"
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_mapa = st.tabs([
+    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", "📚 Glossário", "🌳 Genealogia", "🗺️ Mapa"
 ])
 
 # === ABA 1: EDITOR ===
@@ -323,91 +343,112 @@ with tab_erros:
         criar_secao_erros("Timeline", "Timeline")
         criar_secao_erros("Povos", "Povo")
 
-# === ABA 6: GLOSSÁRIO AUTOMÁTICO (NOVA) ===
+# === ABA 6: GLOSSÁRIO ===
 with tab_glossario:
     st.header("📚 Glossário Vivo")
-    st.markdown("A IA lê todo o seu Lore e cria um dicionário de Termos, Nomes e Lugares.")
-
-    # Botão de Geração
     if not api_key: st.warning("Insira a API Key.")
     else:
-        col_btn, col_info = st.columns([1, 3])
-        with col_btn:
-            if st.button("🔄 Gerar/Atualizar Glossário"):
-                with st.spinner("Lendo todos os textos e compilando definições..."):
+        c_btn, c_info = st.columns([1, 3])
+        with c_btn:
+            if st.button("🔄 Atualizar Glossário"):
+                with st.spinner("Lendo..."):
                     try:
                         lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                        prompt_glossario = f"""
-                        Atue como um Bibliotecário Mágico.
-                        TAREFA: Leia todo o texto abaixo e extraia uma lista de TERMOS IMPORTANTES (Nomes Próprios, Cidades, Magias, Raças, Eventos).
-                        Para cada termo, escreva uma definição curta (1 frase).
-                        
+                        prompt = f"""
+                        Bibliotecário. Extraia termos (Nomes, Cidades, Magias). Definição curta.
+                        JSON: {{ "Termo": "Definição...", ... }}
                         LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                        
-                        FORMATO JSON OBRIGATÓRIO:
-                        {{
-                            "Aetherius": "O plano divino de onde emana a magia.",
-                            "Elfos": "Raça imortal que vive nas florestas do norte.",
-                            "Guerra das Cinzas": "Conflito que devastou o reino há 500 anos."
-                        }}
                         """
                         model = genai.GenerativeModel(modelo_escolhido)
-                        res = model.generate_content(prompt_glossario)
+                        res = model.generate_content(prompt)
                         dados = extrair_json(res.text)
                         if dados:
                             st.session_state.glossario = dados
                             salvar_cache_analise("glossario", dados)
-                            st.success(f"Glossário criado com {len(dados)} termos!")
+                            st.success("Feito!")
                             st.rerun()
-                        else: st.error("Erro ao gerar JSON.")
+                        else: st.error("Erro JSON")
                     except Exception as e: st.error(f"Erro: {e}")
         
-        with col_info:
-            if st.session_state.glossario:
-                st.info(f"📖 Termos catalogados: {len(st.session_state.glossario)}")
+        with c_info:
+            if st.session_state.glossario: st.info(f"Termos: {len(st.session_state.glossario)}")
 
     st.divider()
-
-    # --- O LEITOR INTELIGENTE ---
     c_leitor, c_termos = st.columns([2, 1])
-    
     with c_leitor:
-        st.subheader("📖 Leitor Contextual")
-        # Dropdown para escolher o texto
-        texto_escolhido = st.selectbox("Escolha um texto para ler:", CATEGORIAS)
-        conteudo_texto = lore_data.get(texto_escolhido, "")
-        
-        if conteudo_texto:
-            st.text_area("Leitura:", value=conteudo_texto, height=600, disabled=True)
-        else:
-            st.caption("Este texto está vazio.")
-
+        txt_escolhido = st.selectbox("Ler Texto:", CATEGORIAS)
+        conteudo = lore_data.get(txt_escolhido, "")
+        st.text_area("Leitura:", value=conteudo, height=600, disabled=True)
     with c_termos:
-        st.subheader("🔍 Termos Neste Texto")
-        if not st.session_state.glossario:
-            st.warning("Gere o glossário primeiro!")
-        elif not conteud_texto:
-            st.write("...")
+        st.subheader("🔍 Termos")
+        if not st.session_state.glossario: st.warning("Gere o glossário!")
+        elif not conteudo: st.write("...")
         else:
-            # Lógica de busca: Verifica quais chaves do glossário aparecem no texto
-            termos_encontrados = []
-            for termo, definicao in st.session_state.glossario.items():
-                if termo in conteudo_texto:
-                    termos_encontrados.append((termo, definicao))
+            encontrados = [(t, d) for t, d in st.session_state.glossario.items() if t in conteudo]
+            if encontrados:
+                for t, d in encontrados:
+                    with st.expander(f"🔹 {t}"): st.write(d)
+            else: st.info("Nenhum termo encontrado.")
+
+# === ABA 7: GENEALOGIA (NOVA) ===
+with tab_genealogia:
+    st.header("🌳 Árvore Genealógica & Conexões")
+    st.markdown("A IA desenha um mapa visual das Casas, Famílias e Alianças.")
+
+    if not api_key: st.warning("Insira a API Key.")
+    else:
+        if st.session_state.arvore_dot:
+            st.success("📂 Gráfico carregado da memória.")
             
-            if termos_encontrados:
-                for t, d in termos_encontrados:
-                    with st.expander(f"🔹 {t}", expanded=True):
-                        st.write(d)
-            else:
-                st.info("Nenhum termo do glossário encontrado neste texto específico.")
+        if st.button("🔄 Gerar Gráfico de Conexões"):
+            with st.spinner("Desenhando a árvore da vida..."):
+                try:
+                    lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
+                    
+                    prompt_genealogia = f"""
+                    Atue como um Genealogista Real.
+                    TAREFA: Leia o lore e identifique famílias, casas reais e alianças.
+                    Crie um código GRAPHVIZ (DOT) válido.
+                    
+                    REGRAS VISUAIS:
+                    - Use 'digraph G {{ ... }}'
+                    - Use 'rankdir=LR' (Esquerda para Direita).
+                    - Agrupe membros da mesma casa em 'subgraph cluster_NomeCasa {{ ... }}'.
+                    - Use cores diferentes para cada casa (style=filled, color=...).
+                    - Use setas (->) para Pais -> Filhos.
+                    - Use linhas tracejadas [style=dashed, dir=none] para Casamentos/Alianças.
+                    - Apenas nomes nos nós.
+                    
+                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
+                    
+                    RESPONDA APENAS COM O CÓDIGO DOT ENTRE CRASES (```dot ... ```).
+                    """
+                    
+                    model = genai.GenerativeModel(modelo_escolhido)
+                    res = model.generate_content(prompt_genealogia)
+                    dot_code = extrair_dot(res.text)
+                    
+                    if dot_code:
+                        st.session_state.arvore_dot = dot_code
+                        salvar_cache_analise("arvore_dot", dot_code)
+                        st.success("Gráfico gerado!")
+                    else:
+                        st.error("A IA não gerou um código gráfico válido. Tente de novo.")
+                        st.write(res.text) # Debug
+                        
+                except Exception as e:
+                    st.error(f"Erro ao gerar: {e}")
 
-    st.divider()
-    # Lista completa no final (opcional)
-    with st.expander("Ver Dicionário Completo (Todos os Termos)"):
-        st.json(st.session_state.glossario)
+    # Renderiza o Gráfico
+    if st.session_state.arvore_dot:
+        try:
+            st.graphviz_chart(st.session_state.arvore_dot)
+            with st.expander("Ver Código DOT (Para editar em outro lugar)"):
+                st.code(st.session_state.arvore_dot, language="dot")
+        except Exception as e:
+            st.error(f"Erro ao desenhar gráfico (Código inválido): {e}")
 
-# === ABA 7: MAPA ===
+# === ABA 8: MAPA ===
 with tab_mapa:
     st.header("🗺️ Cartografia Oficial")
     mapa_b64 = carregar_mapa()
