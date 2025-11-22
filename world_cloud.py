@@ -12,14 +12,16 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
+# --- CONFIGURAÇÃO DA PÁGINA (LAYOUT WIDE PARA MELHOR UX) ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
 
-# --- 🎨 ESTILO VISUAL ---
+# --- 🎨 ESTILO VISUAL (CSS MÁGICO + MOBILE) ---
 def aplicar_estilo_visual():
     st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
+        
+        /* --- GERAL --- */
         .stApp {
             background-color: #0e1117;
             background-image: radial-gradient(circle at 50% 0, #1c2331, #0e1117);
@@ -32,17 +34,26 @@ def aplicar_estilo_visual():
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
             font-weight: 700;
         }
-        h1 {
-            text-align: center;
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-            border-bottom: 2px solid #e6c200;
-            padding-bottom: 20px;
+        
+        /* --- MOBILE OPTIMIZATION --- */
+        @media (max-width: 768px) {
+            .stColumns {
+                flex-direction: column;
+            }
+            /* Aumenta botões no celular */
+            .stButton > button {
+                width: 100%;
+                margin-top: 10px;
+            }
         }
+
+        /* --- BARRA LATERAL --- */
         [data-testid="stSidebar"] {
             background-color: #11141a;
             border-right: 1px solid #30363d;
         }
+        
+        /* --- CAIXAS DE TEXTO --- */
         .stTextArea textarea {
             background-color: #161b22 !important;
             color: #e6e6e6 !important;
@@ -50,6 +61,12 @@ def aplicar_estilo_visual():
             font-family: 'Lato', sans-serif;
             border-radius: 8px;
         }
+        .stTextArea textarea:focus {
+            border-color: #e6c200 !important;
+            box-shadow: 0 0 8px rgba(230, 194, 0, 0.3);
+        }
+        
+        /* --- BOTÕES --- */
         .stButton > button {
             background: linear-gradient(180deg, #2e2e2e 0%, #1a1a1a 100%);
             color: #e6c200 !important;
@@ -68,16 +85,18 @@ def aplicar_estilo_visual():
             transform: translateY(-2px);
             border-color: #fff !important;
         }
-        .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid #30363d; }
-        .stTabs [data-baseweb="tab"] { background-color: transparent; border-radius: 4px 4px 0 0; color: #8b949e; font-family: 'Cinzel', serif; }
-        .stTabs [aria-selected="true"] { background-color: #161b22; color: #e6c200; border: 1px solid #e6c200; border-bottom: none; }
-        .streamlit-expanderHeader { background-color: #161b22; color: #e6c200 !important; border: 1px solid #30363d; font-family: 'Cinzel', serif; }
+        
+        /* --- CUSTOM TOAST (FEEDBACK) --- */
+        div[data-testid="stToast"] {
+            background-color: #161b22;
+            border: 1px solid #e6c200;
+            color: #e6c200;
+            font-family: 'Cinzel', serif;
+        }
     </style>
     """, unsafe_allow_html=True)
 
 aplicar_estilo_visual()
-st.title("🏰 World Architect")
-st.markdown("<div style='text-align: center; color: #8b949e; margin-top: -20px; margin-bottom: 30px;'>O Grimório Vivo de Lore & Criação</div>", unsafe_allow_html=True)
 
 # --- INICIALIZAÇÃO SEGURA DE ESTADO ---
 caches_salvos = {} 
@@ -90,7 +109,6 @@ if "glossario" not in st.session_state: st.session_state.glossario = {}
 if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = ""
 if "timeline_dados" not in st.session_state: st.session_state.timeline_dados = []
 if "dashboard_dados" not in st.session_state: st.session_state.dashboard_dados = []
-# NOVO: Cache do Grafo de Conexões
 if "grafo_dot" not in st.session_state: st.session_state.grafo_dot = ""
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
@@ -184,9 +202,9 @@ CATEGORIAS = [
     "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
 ]
 
-# --- 4. CARREGAMENTO DOS DADOS ---
+# --- 4. CARREGAMENTO ---
 caches_salvos = carregar_cache_analises()
-
+# (Recupera estados do banco...)
 if not st.session_state.sugestoes_ia: st.session_state.sugestoes_ia = caches_salvos.get("sugestoes", {})
 if not st.session_state.erros_ia: st.session_state.erros_ia = caches_salvos.get("erros", {})
 if not st.session_state.resumo_erros: st.session_state.resumo_erros = caches_salvos.get("resumo_erros", "")
@@ -196,28 +214,7 @@ if not st.session_state.glossario: st.session_state.glossario = caches_salvos.ge
 if not st.session_state.arvore_dot: st.session_state.arvore_dot = caches_salvos.get("arvore_dot", "")
 if not st.session_state.timeline_dados: st.session_state.timeline_dados = caches_salvos.get("timeline_dados", [])
 if not st.session_state.dashboard_dados: st.session_state.dashboard_dados = caches_salvos.get("dashboard_dados", [])
-# NOVO CACHE
 if not st.session_state.grafo_dot: st.session_state.grafo_dot = caches_salvos.get("grafo_dot", "")
-
-# --- 5. INTERFACE ---
-st.sidebar.header("⚙️ Configuração Mágica")
-api_key = st.sidebar.text_input("Chave do Oráculo (API Key)", type="password")
-
-modelo_escolhido = "gemini-pro" 
-
-if api_key:
-    genai.configure(api_key=api_key)
-    try:
-        lista_modelos = []
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                if "exp" not in m.name:
-                    lista_modelos.append(m.name)
-        if lista_modelos:
-            lista_modelos.sort(key=lambda x: "flash" not in x)
-            modelo_escolhido = st.sidebar.selectbox("Inteligência:", lista_modelos, index=0)
-    except Exception as e:
-        st.sidebar.error(f"Erro IA: {e}")
 
 try:
     lore_data = carregar_lore()
@@ -225,35 +222,107 @@ except Exception as e:
     st.error(f"Erro Banco: {e}")
     st.stop()
 
+# --- 5. SIDEBAR COM FERRAMENTAS DE UX (NOVIDADE) ---
+with st.sidebar:
+    st.title("🏰 World Architect")
+    st.header("⚙️ Configuração")
+    api_key = st.text_input("Chave do Oráculo (API Key)", type="password")
+    
+    # Configuração de IA
+    modelo_escolhido = "gemini-pro" 
+    if api_key:
+        genai.configure(api_key=api_key)
+        try:
+            lista = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and "exp" not in m.name]
+            lista.sort(key=lambda x: "flash" not in x)
+            modelo_escolhido = st.selectbox("Cérebro da IA:", lista, index=0)
+        except: pass
+
+    st.divider()
+    
+    # --- UX 1: BUSCA GLOBAL ---
+    st.subheader("🔍 Busca Global")
+    termo_busca = st.text_input("Procurar no Lore:", placeholder="Ex: Elfos")
+    if termo_busca:
+        resultados = []
+        for cat, texto in lore_data.items():
+            if termo_busca.lower() in texto.lower():
+                resultados.append(cat)
+        if resultados:
+            st.success(f"Encontrado em {len(resultados)} seções:")
+            for r in resultados:
+                st.caption(f"• {r}")
+        else:
+            st.warning("Não encontrado.")
+
+    st.divider()
+
+    # --- UX 2: GLOSSÁRIO RÁPIDO (TOOLTIP MANUAL) ---
+    st.subheader("📖 Dicionário Rápido")
+    termo_glossario = st.text_input("Definição de:", placeholder="Digite um termo...")
+    if termo_glossario and st.session_state.glossario:
+        # Busca aproximada
+        encontrado = False
+        for k, v in st.session_state.glossario.items():
+            if termo_glossario.lower() in k.lower():
+                st.info(f"**{k}:** {v}")
+                encontrado = True
+                break
+        if not encontrado:
+            st.caption("Termo não consta no glossário.")
+    elif termo_glossario and not st.session_state.glossario:
+        st.caption("Glossário vazio. Gere na aba 'Glossário'.")
+
 # --- ABAS ---
 abas = [
     "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
-    "📚 Glossário", "🌳 Genealogia", "🕸️ Teia de Conexões", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa"
+    "📚 Glossário", "🌳 Genealogia", "🕸️ Conexões", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa"
 ]
-# Adicionado tab_conexoes
 tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_conexoes, tab_timeline, tab_dashboard, tab_mapa = st.tabs(abas)
 
-# === ABA 1: EDITOR ===
+# === ABA 1: EDITOR (COM UX DE NAVEGAÇÃO) ===
 with tab_editor:
-    st.info("💾 As escrituras são salvas automaticamente nos arquivos etéreos (Nuvem).")
-    def criar_secao_editor(titulo, filtro):
+    # --- UX 3: ÍNDICE DE NAVEGAÇÃO (TOC) ---
+    # Em vez de mostrar tudo de uma vez, permite filtrar
+    col_titulo, col_filtro = st.columns([3, 1])
+    with col_titulo:
+        st.info("As escrituras são salvas automaticamente nos arquivos etéreos (Nuvem).")
+    with col_filtro:
+        filtro_visualizacao = st.selectbox(
+            "📑 Índice (Filtrar):", 
+            ["Ver Tudo", "Geral/Cosmologia", "Timeline", "Povos"]
+        )
+
+    def criar_secao_editor(titulo, filtro_chave):
+        # Lógica de filtro visual
+        if filtro_visualizacao != "Ver Tudo":
+            if filtro_visualizacao == "Geral/Cosmologia" and filtro_chave != "Geral": return
+            if filtro_visualizacao == "Timeline" and filtro_chave != "Timeline": return
+            if filtro_visualizacao == "Povos" and filtro_chave != "Povo": return
+
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
         idx = 0
         for cat in CATEGORIAS:
             mostrar = False
-            if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
-            elif filtro != "Geral" and filtro in cat: mostrar = True
+            if filtro_chave == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
+            elif filtro_chave != "Geral" and filtro_chave in cat: mostrar = True
+            
             if mostrar:
                 with cols[idx % 2]:
                     val_atual = lore_data.get(cat, "")
                     novo_val = st.text_area(cat, value=val_atual, height=500, key=f"txt_{cat}")
+                    
+                    # --- UX 4: FEEDBACK VISUAL (TOAST) ---
                     if st.button(f"💾 Salvar {cat}", key=f"btn_{cat}"):
                         salvar_categoria(cat, novo_val)
-                        st.success("Salvo!")
-                        st.rerun()
+                        # Notificação flutuante chique
+                        st.toast(f"Alterações em '{cat}' salvas com sucesso!", icon="✅")
+                        # Rerun suave para atualizar cache local se precisar
+                        # st.rerun() (Opcional, o toast já dá o feedback)
                 idx += 1
         st.divider()
+
     criar_secao_editor("📜 Documentos Gerais & Cosmologia", "Geral")
     criar_secao_editor("⏳ Timeline", "Timeline")
     criar_secao_editor("🏰 Povos", "Povo")
@@ -262,7 +331,7 @@ with tab_editor:
 with tab_chat:
     c1, c2 = st.columns([4, 1])
     c1.header("🔮 Oráculo da Lore")
-    if c2.button("🗑️ Esquecer Tudo"):
+    if c2.button("🗑️ Limpar"):
         st.session_state.messages = []
         salvar_cache_analise("chat_history", [])
         st.rerun()
@@ -290,7 +359,7 @@ with tab_aval:
     st.header("⚖️ O Julgamento Final")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.auditoria_dados: st.success("📂 Relatório recuperado dos arquivos.")
+        if st.session_state.auditoria_dados: st.success("📂 Carregado da memória.")
         if st.button("🔄 Convocar Novo Julgamento"):
             with st.spinner("O Juiz está analisando os autos..."):
                 try:
@@ -494,49 +563,31 @@ with tab_genealogia:
             st.graphviz_chart(st.session_state.arvore_dot)
         except Exception as e: st.error(f"Erro visual: {e}")
 
-# === ABA 8: TEIA DE CONEXÕES (NOVA) ===
+# === ABA 8: CONEXÕES (NOVA ABA) ===
 with tab_conexoes:
-    st.header("🕸️ Teia de Influência Geopolítica")
-    st.markdown("Mapa visual de aliados (Verde), inimigos (Vermelho) e suseranos (Dourado).")
-
+    st.header("🕸️ Teia de Influência")
     if not api_key: st.warning("Insira a API Key.")
     else:
         if st.session_state.grafo_dot: st.success("📂 Rede carregada.")
         if st.button("🔄 Mapear Teia Política"):
-            with st.spinner("Desenhando a teia de intrigas..."):
+            with st.spinner("Desenhando a teia..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    
                     prompt_grafo = f"""
-                    Atue como um Mestre de Espionagem.
-                    TAREFA: Leia o lore e desenhe um GRAFO DE CONEXÕES (Graphviz DOT) entre Reinos, Facções e Personagens Chave.
-                    
-                    REGRAS VISUAIS OBRIGATÓRIAS:
-                    1. Use 'digraph G {{ layout=neato; overlap=false; splines=true; bgcolor="#0e1117"; ... }}'
-                    2. ESTILO DOS NÓS:
-                       - Reinos/Povos: shape=box, style=filled, fillcolor="#2b2b2b", fontcolor="white", color="#e6c200"
-                       - Personagens: shape=ellipse, style=filled, fillcolor="#1a1a1a", fontcolor="white", color="white"
-                    3. ESTILO DAS ARESTAS (Use cores para indicar relação):
-                       - Aliado/Amigo/Comércio: color="#00ff00" (Verde Neon)
-                       - Inimigo/Guerra/Rival: color="#ff0000" (Vermelho Neon)
-                       - Suserano/Vassalo/Neutro: color="#e6c200" (Dourado)
-                    
-                    Identifique as 15-20 conexões mais importantes.
+                    Atue como Espião. GRAPHVIZ DOT (layout=neato).
+                    Nós: Reinos(box, gold), Pessoas(ellipse, white). Arestas: Aliado(green), Inimigo(red).
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    
-                    RESPONDA APENAS COM O CÓDIGO DOT ENTRE CRASES.
+                    RESPONDA APENAS CODIGO DOT.
                     """
-                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_grafo)
                     dot_code = extrair_dot(res.text)
-                    
                     if dot_code:
                         st.session_state.grafo_dot = dot_code
                         salvar_cache_analise("grafo_dot", dot_code)
-                        st.success("Teia gerada!")
+                        st.success("Feito!")
                         st.rerun()
-                    else: st.error("Erro ao gerar DOT.")
+                    else: st.error("Erro no DOT.")
                 except Exception as e: st.error(f"Erro: {e}")
 
     if st.session_state.grafo_dot:
@@ -600,7 +651,6 @@ with tab_dashboard:
             with st.spinner("O Estrategista está avaliando os exércitos e economias..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    
                     prompt_dash = f"""
                     Atue como um Estrategista Militar e Político.
                     Leia o lore abaixo e identifique as 6 a 10 maiores FACÇÕES ou POVOS (ex: Elfos, Orcs, Imperio X).
@@ -620,11 +670,9 @@ with tab_dashboard:
                     
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     """
-                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_dash)
                     dados_dash = extrair_json(res.text)
-                    
                     if dados_dash:
                         st.session_state.dashboard_dados = dados_dash
                         salvar_cache_analise("dashboard_dados", dados_dash)
@@ -633,64 +681,31 @@ with tab_dashboard:
                     else: st.error("Erro ao extrair dados JSON.")
                 except Exception as e: st.error(f"Erro: {e}")
 
-    # Renderiza os Gráficos
     if st.session_state.dashboard_dados:
         df_dash = pd.DataFrame(st.session_state.dashboard_dados)
-        
-        # 1. Gráfico de Barras (Comparativo)
         st.subheader("⚔️ Comparativo de Forças")
         fig_bar = px.bar(
-            df_dash, 
-            x="Entidade", 
-            y=["Militar", "Magia", "Economia", "Influencia"], 
-            barmode="group",
-            title="Militar vs Magia vs Economia",
-            color_discrete_sequence=["#e63946", "#a8dadc", "#e6c200", "#457b9d"] # Vermelho, Azul claro, Ouro, Azul
+            df_dash, x="Entidade", y=["Militar", "Magia", "Economia", "Influencia"], barmode="group",
+            title="Militar vs Magia vs Economia", color_discrete_sequence=["#e63946", "#a8dadc", "#e6c200", "#457b9d"]
         )
-        fig_bar.update_layout(
-            font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", plot_bgcolor="#161b22",
-            legend_title_text='Atributo'
-        )
+        fig_bar.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", plot_bgcolor="#161b22", legend_title_text='Atributo')
         st.plotly_chart(fig_bar, use_container_width=True)
         
         c1, c2 = st.columns(2)
-        
         with c1:
-            # 2. Gráfico de Pizza (Influência Total)
             st.subheader("🌍 Dominância Global (Influência)")
-            fig_pie = px.pie(
-                df_dash, 
-                values='Influencia', 
-                names='Entidade', 
-                title='Participação no Poder Político',
-                hole=0.4,
-                color_discrete_sequence=px.colors.sequential.RdBu
-            )
+            fig_pie = px.pie(df_dash, values='Influencia', names='Entidade', title='Participação no Poder Político', hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
             fig_pie.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117")
             st.plotly_chart(fig_pie, use_container_width=True)
-            
         with c2:
-            # 3. Gráfico de Radar (Spider)
             st.subheader("🕸️ Perfil das Facções")
             entidade_selecionada = st.selectbox("Ver Detalhes De:", df_dash["Entidade"].unique())
-            
             dados_entidade = df_dash[df_dash["Entidade"] == entidade_selecionada].iloc[0]
-            
-            # Prepara dados para Radar
             categorias_radar = ["Militar", "Magia", "Economia", "Influencia"]
             valores_radar = [dados_entidade[c] for c in categorias_radar]
-            
-            fig_radar = px.line_polar(
-                r=valores_radar, 
-                theta=categorias_radar, 
-                line_close=True,
-                range_r=[0, 100]
-            )
+            fig_radar = px.line_polar(r=valores_radar, theta=categorias_radar, line_close=True, range_r=[0, 100])
             fig_radar.update_traces(fill='toself', line_color='#e6c200')
-            fig_radar.update_layout(
-                font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117",
-                polar=dict(bgcolor="#161b22", radialaxis=dict(visible=True, range=[0, 100]))
-            )
+            fig_radar.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", polar=dict(bgcolor="#161b22", radialaxis=dict(visible=True, range=[0, 100])))
             st.plotly_chart(fig_radar, use_container_width=True)
 
 # === ABA 11: MAPA ===
