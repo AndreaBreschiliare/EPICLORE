@@ -166,27 +166,11 @@ with tab_chat:
                     st.session_state.messages.append({"role": "assistant", "content": res.text})
                 except Exception as e: st.error(str(e))
 
-# === ABA 3: AUDITORIA (COM METODOLOGIA) ===
+# === ABA 3: AUDITORIA ===
 with tab_aval:
     st.header("⚖️ Auditoria de Worldbuilding")
-    
-    # --- METODOLOGIA EXPLICATIVA ---
-    with st.expander("📘 Metodologia de Avaliação (Os 10 Pilares)", expanded=False):
-        st.markdown("""
-        **Como a IA avalia seu mundo?**
-        O Auditor assume a personalidade de um Crítico Literário Sênior e analisa 10 pilares fundamentais:
-        
-        1.  **Coerência Interna:** O mundo segue suas próprias regras?
-        2.  **Profundidade Histórica:** Existe um passado tangível (eras, ruínas)?
-        3.  **Cultura e Antropologia:** Os povos têm costumes, roupas e crenças únicas?
-        4.  **Sistema Político:** Há tensões, alianças e governos complexos?
-        5.  **Economia:** Como os recursos moldam os conflitos?
-        6.  **Magia/Tecnologia:** Existem limites, custos e consequências?
-        7.  **Religião e Metafísica:** Os deuses e mitos influenciam a realidade?
-        8.  **Ecologia e Geografia:** O ambiente é vivo e faz sentido?
-        9.  **Conflitos Atuais:** Há tensões imediatas movendo a trama?
-        10. **Singularidade:** O que torna este mundo único em relação a outros?
-        """)
+    with st.expander("📘 Metodologia (10 Pilares)", expanded=False):
+        st.markdown("Critérios: Coerência, História, Cultura, Política, Economia, Magia, Religião, Geografia, Conflitos, Singularidade.")
 
     if not api_key: st.warning("Insira a API Key.")
     else:
@@ -207,22 +191,38 @@ with tab_aval:
                     else: st.write(res.text)
                 except Exception as e: st.error(str(e))
 
-# === ABA 4: SUGESTÕES ===
+# === ABA 4: SUGESTÕES (ATUALIZADA PARA BULLET POINTS) ===
 with tab_sugestao:
     st.header("💡 Co-Autor Criativo")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.button("✨ Gerar Sugestões", type="primary"):
+        if st.button("✨ Gerar Sugestões em Tópicos", type="primary"):
             with st.spinner("Sonhando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items()}
-                    prompt = f"""Atue como Co-Autor. JSON sugestões para: {json.dumps(CATEGORIAS, ensure_ascii=False)}. LORE: {json.dumps(lore_ativo, ensure_ascii=False)}"""
+                    
+                    # --- PROMPT ATUALIZADO PARA BULLET POINTS ---
+                    prompt = f"""
+                    Atue como um Co-Autor de Fantasia.
+                    TAREFA: Para CADA categoria, escreva de 3 a 5 SUGESTÕES CURTAS em formato de tópicos (Bullet Points).
+                    
+                    REGRAS:
+                    - Seja direto.
+                    - Use o caractere '•' para cada ponto.
+                    - Pule uma linha entre os pontos.
+                    
+                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
+                    CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
+                    
+                    SAÍDA JSON: {{ "Categoria": "• Ideia 1\\n• Ideia 2\\n• Ideia 3", ... }}
+                    """
+                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt)
                     dados = extrair_json(res.text)
                     if dados:
                         st.session_state.sugestoes_ia = dados
-                        st.success("Gerado!")
+                        st.success("Sugestões em tópicos geradas!")
                     else: st.error("Erro JSON")
                 except Exception as e: st.error(f"Erro: {e}")
     
@@ -248,26 +248,19 @@ with tab_sugestao:
 
 # === ABA 5: INCOERÊNCIAS ===
 with tab_erros:
-    st.header("⚡ Detector de Incoerências e Falhas Lógicas")
-    
-    with st.expander("📘 Metodologia do Inquisidor (Como funciona?)", expanded=False):
-        st.markdown("""
-        **O Método de Cruzamento de Dados (N x N):**
-        A IA lê todos os textos simultaneamente e cria uma "matriz de fatos".
-        1.  **Verificação Cronológica:** Compara datas nas Timelines com biografias.
-        2.  **Verificação Lógica:** Aponta se regras (ex: magia) são quebradas.
-        3.  **Verificação de Recursos:** Checa se a economia sustenta a descrição militar/social.
-        """)
+    st.header("⚡ Detector de Incoerências")
+    with st.expander("📘 Metodologia", expanded=False):
+        st.markdown("Cruzamento de dados N x N para achar erros cronológicos e lógicos.")
 
     if not api_key: st.warning("Insira a API Key.")
     else:
         if st.button("🔥 Rastrear Contradições", type="primary"):
-            with st.spinner("O Grande Inquisidor está lendo cada linha em busca de mentiras..."):
+            with st.spinner("O Inquisidor trabalha..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                     prompt_erros = f"""
                     Auditor Lógico.
-                    TAREFA: 1. Cruzar dados para achar contradições. 2. Criar RESUMO GERAL.
+                    TAREFA: Achar contradições usando bullet points.
                     JSON: {{ "resumo_geral": "...", "detalhes": {{ "Categoria": "• 🔴 ERRO: ...", ... }} }}
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
@@ -283,7 +276,7 @@ with tab_erros:
                 except Exception as e: st.error(f"Erro: {e}")
 
     if st.session_state.resumo_erros:
-        st.info(f"📝 **Veredito dos Achados:**\n\n{st.session_state.resumo_erros}")
+        st.info(f"📝 **Veredito:**\n\n{st.session_state.resumo_erros}")
 
     def criar_secao_erros(titulo, filtro):
         st.markdown(f"### {titulo}")
@@ -315,7 +308,6 @@ with tab_mapa:
     if mapa_b64: st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi", use_container_width=True)
     else: st.info("Sem mapa.")
     st.markdown("---")
-    st.warning("⚠️ O sistema comprimirá automaticamente.")
     arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
     if arquivo_mapa:
         if st.button("📤 Enviar para a Nuvem"):
