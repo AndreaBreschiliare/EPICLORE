@@ -13,6 +13,13 @@ import io
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
 st.title("🏰 World Architect: Lore & Co-Autor")
 
+# --- INICIALIZAÇÃO SEGURA DE ESTADO ---
+if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
+if "erros_ia" not in st.session_state: st.session_state.erros_ia = {}
+if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = ""
+if "messages" not in st.session_state: st.session_state.messages = []
+if "glossario" not in st.session_state: st.session_state.glossario = {}
+
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
 if not firebase_admin._apps:
     try:
@@ -41,9 +48,7 @@ def carregar_mapa():
     if doc.exists: return doc.to_dict().get("imagem_b64", None)
     return None
 
-# --- NOVO: CARREGAR CACHES ---
 def carregar_cache_analises():
-    # Tenta carregar as análises salvas para não gastar IA a toa
     doc_ref = db.collection("mundos").document("cache_analises")
     doc = doc_ref.get()
     if doc.exists: return doc.to_dict()
@@ -57,9 +62,7 @@ def salvar_mapa_b64(b64_string):
     doc_ref = db.collection("mundos").document("mapa_oficial")
     doc_ref.set({"imagem_b64": b64_string})
 
-# --- NOVO: SALVAR CACHES ---
 def salvar_cache_analise(tipo, dados):
-    # Tipos: 'auditoria', 'sugestoes', 'erros', 'resumo_erros'
     doc_ref = db.collection("mundos").document("cache_analises")
     doc_ref.set({tipo: dados}, merge=True)
 
@@ -96,24 +99,16 @@ CATEGORIAS = [
     "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
 ]
 
-# --- 4. INICIALIZAÇÃO DE ESTADO COM CACHE ---
-# Carrega os dados do banco na inicialização
+# --- 4. INICIALIZAÇÃO DE ESTADO ---
 caches_salvos = carregar_cache_analises()
 
-if "sugestoes_ia" not in st.session_state: 
-    st.session_state.sugestoes_ia = caches_salvos.get("sugestoes", {})
-
-if "erros_ia" not in st.session_state: 
-    st.session_state.erros_ia = caches_salvos.get("erros", {})
-
-if "resumo_erros" not in st.session_state: 
-    st.session_state.resumo_erros = caches_salvos.get("resumo_erros", "")
-
-if "auditoria_dados" not in st.session_state:
-    st.session_state.auditoria_dados = caches_salvos.get("auditoria", [])
-
-if "messages" not in st.session_state: 
-    st.session_state.messages = []
+if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = caches_salvos.get("sugestoes", {})
+if "erros_ia" not in st.session_state: st.session_state.erros_ia = caches_salvos.get("erros", {})
+if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = caches_salvos.get("resumo_erros", "")
+if "auditoria_dados" not in st.session_state: st.session_state.auditoria_dados = caches_salvos.get("auditoria", [])
+if "messages" not in st.session_state: st.session_state.messages = caches_salvos.get("chat_history", [])
+# NOVO: Recupera Glossário
+if "glossario" not in st.session_state: st.session_state.glossario = caches_salvos.get("glossario", {})
 
 # --- 5. INTERFACE ---
 st.sidebar.header("Configuração IA")
@@ -142,8 +137,8 @@ except Exception as e:
     st.stop()
 
 # --- ABAS ---
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_mapa = st.tabs([
-    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", "🗺️ Mapa"
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_mapa = st.tabs([
+    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", "📚 Glossário", "🗺️ Mapa"
 ])
 
 # === ABA 1: EDITOR ===
@@ -173,7 +168,13 @@ with tab_editor:
 
 # === ABA 2: CHAT ===
 with tab_chat:
-    st.header("Oráculo da Lore")
+    c1, c2 = st.columns([4, 1])
+    c1.header("Oráculo da Lore")
+    if c2.button("🗑️ Limpar"):
+        st.session_state.messages = []
+        salvar_cache_analise("chat_history", [])
+        st.rerun()
+
     if not api_key: st.warning("Insira a API Key.")
     else:
         for msg in st.session_state.messages:
@@ -189,94 +190,55 @@ with tab_chat:
                     res = model.generate_content(sys_prompt)
                     st.markdown(res.text)
                     st.session_state.messages.append({"role": "assistant", "content": res.text})
+                    salvar_cache_analise("chat_history", st.session_state.messages)
                 except Exception as e: st.error(str(e))
 
-# === ABA 3: AUDITORIA (CRÍTICA E PERSISTENTE) ===
+# === ABA 3: AUDITORIA ===
 with tab_aval:
     st.header("⚖️ Auditoria Implacável")
-    with st.expander("📘 Metodologia (10 Pilares)", expanded=False):
-        st.markdown("Critérios: Coerência, História, Cultura, Política, Economia, Magia, Religião, Geografia, Conflitos, Singularidade.")
-
     if not api_key: st.warning("Insira a API Key.")
     else:
-        # Se já tiver dados no cache, avisa
-        if st.session_state.auditoria_dados:
-            st.info("Visualizando Auditoria do Cache (Salva no Banco). Clique abaixo para recalcular.")
-            
-        if st.button("🔄 Rodar Nova Auditoria (Sobrescrever Cache)"):
-            with st.spinner("O Crítico está destruindo seus conceitos fracos..."):
+        if st.session_state.auditoria_dados: st.success("📂 Carregado da memória.")
+        if st.button("🔄 Recalcular Auditoria"):
+            with st.spinner("Auditando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    
-                    # --- PROMPT BRUTAL ---
                     prompt_auditoria = f"""
-                    VOCÊ É UM EDITOR LITERÁRIO SÊNIOR, CÍNICO E EXTREMAMENTE CRÍTICO (ESTILO GEORGE MARTIN EM UM DIA RUIM).
-                    
-                    SUA MISSÃO: Analisar o worldbuilding abaixo e DESTRUIR qualquer incoerência, clichê ou preguiça criativa.
-                    Não seja educado. Seja realista. Se a economia não faz sentido, chame de estupidez. Se a magia não tem custo, chame de recurso narrativo fraco.
-                    
-                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    
-                    AVALIE ESTES 10 PILARES (Dê nota 0-10):
-                    1. Coerência Interna
-                    2. Profundidade Histórica
-                    3. Cultura e Antropologia
-                    4. Sistema Político
-                    5. Economia e Recursos
-                    6. Magia/Tecnologia
-                    7. Religião e Metafísica
-                    8. Ecologia e Geografia
-                    9. Conflitos Atuais
-                    10. Singularidade
-                    
-                    FORMATO JSON OBRIGATÓRIO:
-                    [
-                        {{
-                            "titulo": "1. Coerência Interna",
-                            "nota": 4,
-                            "analise": "Texto crítico e ácido explicando por que está ruim ou bom.",
-                            "melhorias": "Sugestão prática para consertar."
-                        }},
-                        ...
-                    ]
+                    Atue como Crítico Literário CÍNICO. Analise: {json.dumps(lore_ativo, ensure_ascii=False)}. 
+                    Avalie 10 pilares. JSON OBRIGATÓRIO: [{{ "titulo": "...", "nota": 8, "analise": "...", "melhorias": "..." }}]
                     """
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_auditoria)
                     dados = extrair_json(res.text)
                     if dados:
-                        # Salva no Estado e no Banco
                         st.session_state.auditoria_dados = dados
                         salvar_cache_analise("auditoria", dados)
-                        st.success("Auditoria Brutal Concluída e Salva!")
+                        st.rerun()
                     else: st.write(res.text)
                 except Exception as e: st.error(str(e))
         
-        # Exibe os dados (seja do cache ou novo)
         if st.session_state.auditoria_dados:
              for item in st.session_state.auditoria_dados:
                 with st.expander(f"{item['titulo']} - Nota {item['nota']}"):
                     st.progress(item['nota']/10)
-                    st.info(f"**Análise:** {item['analise']}")
-                    st.warning(f"**Exigência:** {item['melhorias']}")
+                    st.info(item['analise'])
+                    st.warning(item['melhorias'])
 
-# === ABA 4: SUGESTÕES (PERSISTENTE) ===
+# === ABA 4: SUGESTÕES ===
 with tab_sugestao:
     st.header("💡 Co-Autor Criativo")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.sugestoes_ia:
-             st.info("Visualizando Sugestões Salvas.")
-             
-        if st.button("🔄 Gerar Novas Ideias (Sobrescrever Cache)", type="primary"):
+        if st.session_state.sugestoes_ia: st.success("📂 Carregado da memória.")
+        if st.button("🔄 Gerar Novas Ideias"):
             with st.spinner("Sonhando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items()}
                     prompt = f"""
-                    Atue como um Co-Autor Criativo.
-                    TAREFA: Para CADA categoria, crie 3 a 5 TÓPICOS (Bullet Points) de ideias novas, plot twists ou segredos.
+                    Co-Autor. Para CADA categoria, 3 a 5 TÓPICOS (Bullet Points).
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
-                    SAÍDA JSON: {{ "Categoria": "• Ideia 1\\n• Ideia 2", ... }}
+                    JSON: {{ "Categoria": "• Ideia 1\\n• Ideia 2", ... }}
                     """
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt)
@@ -284,7 +246,7 @@ with tab_sugestao:
                     if dados:
                         st.session_state.sugestoes_ia = dados
                         salvar_cache_analise("sugestoes", dados)
-                        st.success("Novas ideias salvas!")
+                        st.rerun()
                     else: st.error("Erro JSON")
                 except Exception as e: st.error(f"Erro: {e}")
     
@@ -308,33 +270,19 @@ with tab_sugestao:
         criar_secao_sugestao("Timeline", "Timeline")
         criar_secao_sugestao("Povos", "Povo")
 
-# === ABA 5: INCOERÊNCIAS (BRUTAL E PERSISTENTE) ===
+# === ABA 5: INCOERÊNCIAS ===
 with tab_erros:
     st.header("⚡ Detector de Incoerências")
-    with st.expander("📘 Metodologia", expanded=False):
-        st.markdown("Cruzamento N x N. Cache Ativo.")
-
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.erros_ia:
-             st.info("Visualizando Incoerências Salvas.")
-             
-        if st.button("🔄 Rastrear Contradições (Sobrescrever Cache)", type="primary"):
-            with st.spinner("O Inquisidor está sendo implacável..."):
+        if st.session_state.erros_ia: st.success("📂 Carregado da memória.")
+        if st.button("🔄 Rastrear Contradições"):
+            with st.spinner("Inquisidor trabalhando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    
-                    # --- PROMPT INQUISIDOR ---
                     prompt_erros = f"""
-                    VOCÊ É UM INVESTIGADOR FORENSE DE LÓGICA E CONTINUIDADE.
-                    Não seja "bonzinho". Seu trabalho é achar falhas. Seja pedante. Seja chato.
-                    
-                    TAREFA: 
-                    1. Cruze TODOS os dados.
-                    2. Se A contradiz B, aponte.
-                    3. Se algo não faz sentido econômico ou físico, aponte.
-                    
-                    SAÍDA JSON: {{ "resumo_geral": "Veredito ácido...", "detalhes": {{ "Categoria": "• 🔴 ERRO: ...", ... }} }}
+                    Auditor Lógico. Cruze dados. Ache contradições.
+                    JSON: {{ "resumo_geral": "...", "detalhes": {{ "Categoria": "• 🔴 ERRO: ...", ... }} }}
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
                     """
@@ -344,17 +292,13 @@ with tab_erros:
                     if dados_json:
                         st.session_state.resumo_erros = dados_json.get("resumo_geral", "")
                         st.session_state.erros_ia = dados_json.get("detalhes", {})
-                        
-                        # Salva tudo no cache
                         salvar_cache_analise("erros", st.session_state.erros_ia)
                         salvar_cache_analise("resumo_erros", st.session_state.resumo_erros)
-                        
-                        st.success("Varredura completa e salva!")
+                        st.rerun()
                     else: st.write(res.text)
                 except Exception as e: st.error(f"Erro: {e}")
 
-    if st.session_state.resumo_erros:
-        st.info(f"📝 **Veredito Implacável:**\n\n{st.session_state.resumo_erros}")
+    if st.session_state.resumo_erros: st.info(f"📝 **Veredito:**\n\n{st.session_state.resumo_erros}")
 
     def criar_secao_erros(titulo, filtro):
         st.markdown(f"### {titulo}")
@@ -370,7 +314,7 @@ with tab_erros:
                     st.text_area(f"📄 {cat}", value=val, height=150, disabled=True, key=f"view_{cat}")
                     erro = st.session_state.erros_ia.get(cat, None)
                     if erro: st.error(f"🚨 **PROBLEMAS:**\n\n{erro}")
-                    else: st.success("✅ Aprovado pelo Inquisidor")
+                    else: st.success("✅ Aprovado")
                 idx += 1
         st.divider()
         
@@ -379,7 +323,91 @@ with tab_erros:
         criar_secao_erros("Timeline", "Timeline")
         criar_secao_erros("Povos", "Povo")
 
-# === ABA 6: MAPA ===
+# === ABA 6: GLOSSÁRIO AUTOMÁTICO (NOVA) ===
+with tab_glossario:
+    st.header("📚 Glossário Vivo")
+    st.markdown("A IA lê todo o seu Lore e cria um dicionário de Termos, Nomes e Lugares.")
+
+    # Botão de Geração
+    if not api_key: st.warning("Insira a API Key.")
+    else:
+        col_btn, col_info = st.columns([1, 3])
+        with col_btn:
+            if st.button("🔄 Gerar/Atualizar Glossário"):
+                with st.spinner("Lendo todos os textos e compilando definições..."):
+                    try:
+                        lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
+                        prompt_glossario = f"""
+                        Atue como um Bibliotecário Mágico.
+                        TAREFA: Leia todo o texto abaixo e extraia uma lista de TERMOS IMPORTANTES (Nomes Próprios, Cidades, Magias, Raças, Eventos).
+                        Para cada termo, escreva uma definição curta (1 frase).
+                        
+                        LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
+                        
+                        FORMATO JSON OBRIGATÓRIO:
+                        {{
+                            "Aetherius": "O plano divino de onde emana a magia.",
+                            "Elfos": "Raça imortal que vive nas florestas do norte.",
+                            "Guerra das Cinzas": "Conflito que devastou o reino há 500 anos."
+                        }}
+                        """
+                        model = genai.GenerativeModel(modelo_escolhido)
+                        res = model.generate_content(prompt_glossario)
+                        dados = extrair_json(res.text)
+                        if dados:
+                            st.session_state.glossario = dados
+                            salvar_cache_analise("glossario", dados)
+                            st.success(f"Glossário criado com {len(dados)} termos!")
+                            st.rerun()
+                        else: st.error("Erro ao gerar JSON.")
+                    except Exception as e: st.error(f"Erro: {e}")
+        
+        with col_info:
+            if st.session_state.glossario:
+                st.info(f"📖 Termos catalogados: {len(st.session_state.glossario)}")
+
+    st.divider()
+
+    # --- O LEITOR INTELIGENTE ---
+    c_leitor, c_termos = st.columns([2, 1])
+    
+    with c_leitor:
+        st.subheader("📖 Leitor Contextual")
+        # Dropdown para escolher o texto
+        texto_escolhido = st.selectbox("Escolha um texto para ler:", CATEGORIAS)
+        conteudo_texto = lore_data.get(texto_escolhido, "")
+        
+        if conteudo_texto:
+            st.text_area("Leitura:", value=conteudo_texto, height=600, disabled=True)
+        else:
+            st.caption("Este texto está vazio.")
+
+    with c_termos:
+        st.subheader("🔍 Termos Neste Texto")
+        if not st.session_state.glossario:
+            st.warning("Gere o glossário primeiro!")
+        elif not conteud_texto:
+            st.write("...")
+        else:
+            # Lógica de busca: Verifica quais chaves do glossário aparecem no texto
+            termos_encontrados = []
+            for termo, definicao in st.session_state.glossario.items():
+                if termo in conteudo_texto:
+                    termos_encontrados.append((termo, definicao))
+            
+            if termos_encontrados:
+                for t, d in termos_encontrados:
+                    with st.expander(f"🔹 {t}", expanded=True):
+                        st.write(d)
+            else:
+                st.info("Nenhum termo do glossário encontrado neste texto específico.")
+
+    st.divider()
+    # Lista completa no final (opcional)
+    with st.expander("Ver Dicionário Completo (Todos os Termos)"):
+        st.json(st.session_state.glossario)
+
+# === ABA 7: MAPA ===
 with tab_mapa:
     st.header("🗺️ Cartografia Oficial")
     mapa_b64 = carregar_mapa()
