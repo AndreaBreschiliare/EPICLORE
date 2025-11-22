@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
 
-# --- 🎨 ESTILO VISUAL (CSS MÁGICO) ---
+# --- 🎨 ESTILO VISUAL ---
 def aplicar_estilo_visual():
     st.markdown("""
     <style>
@@ -80,7 +80,7 @@ st.title("🏰 World Architect")
 st.markdown("<div style='text-align: center; color: #8b949e; margin-top: -20px; margin-bottom: 30px;'>O Grimório Vivo de Lore & Criação</div>", unsafe_allow_html=True)
 
 # --- INICIALIZAÇÃO SEGURA DE ESTADO ---
-caches_salvos = {} # Placeholder inicial
+caches_salvos = {} 
 if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
 if "erros_ia" not in st.session_state: st.session_state.erros_ia = {}
 if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = ""
@@ -89,7 +89,6 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "glossario" not in st.session_state: st.session_state.glossario = {}
 if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = ""
 if "timeline_dados" not in st.session_state: st.session_state.timeline_dados = []
-# NOVO: Cache Dashboard
 if "dashboard_dados" not in st.session_state: st.session_state.dashboard_dados = []
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
@@ -186,7 +185,6 @@ CATEGORIAS = [
 # --- 4. CARREGAMENTO DOS DADOS ---
 caches_salvos = carregar_cache_analises()
 
-# Atualiza session_state com o que veio do banco
 if not st.session_state.sugestoes_ia: st.session_state.sugestoes_ia = caches_salvos.get("sugestoes", {})
 if not st.session_state.erros_ia: st.session_state.erros_ia = caches_salvos.get("erros", {})
 if not st.session_state.resumo_erros: st.session_state.resumo_erros = caches_salvos.get("resumo_erros", "")
@@ -491,7 +489,7 @@ with tab_genealogia:
             st.graphviz_chart(st.session_state.arvore_dot)
         except Exception as e: st.error(f"Erro visual: {e}")
 
-# === ABA 8: TIMELINE ===
+# === ABA 8: TIMELINE VISUAL (LIMPA E INTERATIVA) ===
 with tab_timeline:
     st.header("📉 A Marcha do Tempo")
     if not api_key: st.warning("Insira a API Key.")
@@ -521,19 +519,29 @@ with tab_timeline:
         try:
             df = pd.DataFrame(st.session_state.timeline_dados)
             if not df.empty:
+                # AQUI ESTÁ A MUDANÇA PRINCIPAL PARA LIMPAR O GRÁFICO
                 fig = px.scatter(
-                    df, x="ano_numerico", y="grupo", text="evento", hover_data=["data_exibicao"], color="grupo", title="Linha do Tempo", height=600
+                    df, 
+                    x="ano_numerico", 
+                    y="grupo", 
+                    # REMOVIDO O text="evento" QUE SUJAVA A TELA
+                    hover_name="data_exibicao", # Título do Tooltip
+                    hover_data={"ano_numerico": False, "grupo": False, "evento": True}, # Mostra o texto só no mouse
+                    color="grupo", 
+                    title="Linha do Tempo (Passe o mouse para ler)", 
+                    height=600,
+                    size_max=15 # Bolinhas maiores
                 )
+                fig.update_traces(marker=dict(size=14, line=dict(width=2, color='#e6c200')))
                 fig.update_layout(
                     font_family="Lato", font_color="#d4d4d4", title_font_family="Cinzel", title_font_color="#e6c200",
                     paper_bgcolor="#0e1117", plot_bgcolor="#161b22", xaxis=dict(gridcolor="#30363d"), yaxis=dict(gridcolor="#30363d")
                 )
-                fig.update_traces(textposition='top center', marker=dict(size=12, line=dict(width=2, color='#e6c200')))
                 st.plotly_chart(fig, use_container_width=True)
             else: st.warning("Sem dados.")
         except Exception as e: st.error(f"Erro gráfico: {e}")
 
-# === ABA 9: DASHBOARDS (NOVA) ===
+# === ABA 9: DASHBOARDS ===
 with tab_dashboard:
     st.header("📊 Sala de Guerra: Poder & Influência")
     
