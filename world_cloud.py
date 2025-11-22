@@ -5,6 +5,7 @@ from firebase_admin import firestore
 import google.generativeai as genai
 import json
 import re
+import base64
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
@@ -24,6 +25,7 @@ db = firestore.client()
 
 # --- 2. FUNÇÕES DE SUPORTE ---
 def carregar_lore():
+    # Carrega apenas os textos
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc = doc_ref.get()
     if doc.exists:
@@ -33,9 +35,21 @@ def carregar_lore():
         doc_ref.set(dados_iniciais)
         return dados_iniciais
 
+def carregar_mapa():
+    # Carrega apenas o mapa (separado para não pesar)
+    doc_ref = db.collection("mundos").document("mapa_oficial")
+    doc = doc_ref.get()
+    if doc.exists:
+        return doc.to_dict().get("imagem_b64", None)
+    return None
+
 def salvar_categoria(categoria, texto):
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc_ref.set({categoria: texto}, merge=True)
+
+def salvar_mapa_b64(b64_string):
+    doc_ref = db.collection("mundos").document("mapa_oficial")
+    doc_ref.set({"imagem_b64": b64_string})
 
 def extrair_json(texto):
     try:
@@ -89,7 +103,9 @@ except Exception as e:
     st.stop()
 
 # --- ABAS ---
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros = st.tabs(["✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências"])
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_mapa = st.tabs([
+    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", "🗺️ Mapa"
+])
 
 # === ABA 1: EDITOR ===
 with tab_editor:
@@ -102,7 +118,6 @@ with tab_editor:
             mostrar = False
             if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
             elif filtro != "Geral" and filtro in cat: mostrar = True
-            
             if mostrar:
                 with cols[idx % 2]:
                     val_atual = lore_data.get(cat, "")
@@ -210,64 +225,31 @@ with tab_sugestao:
         criar_secao_sugestao("Sugestões: Timeline", "Timeline")
         criar_secao_sugestao("Sugestões: Povos", "Povo")
 
-# === ABA 5: INCOERÊNCIAS (V13 - Bullet Points) ===
+# === ABA 5: INCOERÊNCIAS ===
 with tab_erros:
-    st.header("⚡ Detector de Incoerências e Falhas Lógicas")
-    st.markdown("Esta ferramenta faz um **Cruzamento de Dados** entre todos os textos.")
-
-    if "erros_ia" not in st.session_state:
-        st.session_state.erros_ia = {}
-
-    if not api_key:
-        st.warning("Insira a API Key.")
+    st.header("⚡ Detector de Incoerências")
+    if "erros_ia" not in st.session_state: st.session_state.erros_ia = {}
+    if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.button("🔥 Rastrear Contradições em Todo o Lore", type="primary"):
-            with st.spinner("O Grande Inquisidor está lendo cada linha em busca de mentiras..."):
+        if st.button("🔥 Rastrear Contradições", type="primary"):
+            with st.spinner("Inquisidor trabalhando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    
-                    # --- O PROMPT MAGNÍFICO ATUALIZADO ---
                     prompt_erros = f"""
-                    ATENÇÃO: Você é um Auditor de Continuidade Lógica (Continuity Editor).
-                    
-                    OBJETIVO: Cruzar dados de TODOS os textos para achar contradições.
-                    
-                    REGRAS ESTRITAS:
-                    1. Se o texto A diz X e o texto B diz Y sobre a mesma coisa, ISSO É UM ERRO.
-                    2. Se a cronologia não bate (datas impossíveis, gente morrendo antes de nascer), ISSO É UM ERRO.
-                    
-                    FORMATO OBRIGATÓRIO DE SAÍDA (JSON):
-                    {{
-                        "Nome da Categoria": "• 🔴 ERRO CRÍTICO: Descrição do erro.\\n• 🟡 ALERTA: Descrição do aviso.",
-                        "Outra Categoria": "• 🔴 O ano 500 contradiz a Timeline.\\n• 🟡 Falta explicar a origem do recurso."
-                    }}
-                    
-                    IMPORTANTE:
-                    - Use Bullet Points (•) para cada erro separado.
-                    - Use Emojis (🔴, 🟡, 🟠) para indicar gravidade.
-                    - Se a categoria não tiver erros, NÃO a inclua no JSON.
-                    
-                    LORE COMPLETO:
-                    {json.dumps(lore_ativo, ensure_ascii=False)}
-
-                    CATEGORIAS:
-                    {json.dumps(CATEGORIAS, ensure_ascii=False)}
+                    Auditor Lógico. Cruce dados e ache contradições.
+                    SAÍDA JSON: {{ "Categoria": "• 🔴 ERRO: ...", ... }}
+                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
+                    CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
                     """
-                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_erros)
                     erros_detectados = extrair_json(res.text)
-                    
                     if erros_detectados:
                         st.session_state.erros_ia = erros_detectados
-                        st.success("Varredura completa! Veja os alertas vermelhos abaixo.")
-                    else:
-                        st.info("O Inquisidor não retornou um JSON válido (talvez não tenha encontrado erros graves).")
-                        st.write(res.text)
-                except Exception as e:
-                    st.error(f"Erro na varredura: {e}")
+                        st.success("Varredura completa!")
+                    else: st.write(res.text)
+                except Exception as e: st.error(f"Erro: {e}")
 
-    # Exibição dos Erros (Bullet Points Renderizados)
     def criar_secao_erros(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
@@ -276,20 +258,13 @@ with tab_erros:
             mostrar = False
             if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
             elif filtro != "Geral" and filtro in cat: mostrar = True
-            
             if mostrar:
                 with cols[idx % 2]:
                     val_atual = lore_data.get(cat, "")
-                    # Caixa de visualização do texto original (cinza)
-                    st.text_area(f"📄 {cat} (Texto Original)", value=val_atual, height=150, disabled=True, key=f"view_{cat}")
-                    
-                    # Caixa de ERRO (Vermelha) se houver incoerência
+                    st.text_area(f"📄 {cat}", value=val_atual, height=150, disabled=True, key=f"view_{cat}")
                     erro_msg = st.session_state.erros_ia.get(cat, None)
-                    if erro_msg:
-                        # st.error aceita Markdown, então os bullet points vão ficar bonitos
-                        st.error(f"🚨 **PROBLEMAS ENCONTRADOS:**\n\n{erro_msg}")
-                    else:
-                        st.success("✅ Nenhuma contradição óbvia encontrada.")
+                    if erro_msg: st.error(f"🚨 **PROBLEMAS:**\n\n{erro_msg}")
+                    else: st.success("✅ OK")
                 idx += 1
         st.divider()
 
@@ -297,3 +272,37 @@ with tab_erros:
         criar_secao_erros("Análise: Gerais", "Geral")
         criar_secao_erros("Análise: Timeline", "Timeline")
         criar_secao_erros("Análise: Povos", "Povo")
+
+# === ABA 6: MAPA (NOVA) ===
+with tab_mapa:
+    st.header("🗺️ Cartografia Oficial")
+    
+    # 1. Carrega do Banco
+    mapa_b64 = carregar_mapa()
+    
+    if mapa_b64:
+        # Exibe a imagem decodificando o código
+        st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi Atual", use_container_width=True)
+    else:
+        st.info("Nenhum mapa foi arquivado nos registros ainda.")
+
+    st.markdown("---")
+    st.subheader("Atualizar Mapa")
+    st.warning("⚠️ Use imagens leves (JPG/PNG) com menos de 1MB para não travar o banco.")
+    
+    # 2. Upload
+    arquivo_mapa = st.file_uploader("Carregar nova imagem", type=["jpg", "jpeg", "png"])
+    
+    if arquivo_mapa:
+        if st.button("📤 Enviar para a Nuvem"):
+            try:
+                # Converte a imagem para código Base64
+                bytes_data = arquivo_mapa.getvalue()
+                b64_string = base64.b64encode(bytes_data).decode('utf-8')
+                
+                # Salva no Firestore
+                salvar_mapa_b64(b64_string)
+                st.success("Mapa atualizado com sucesso! Recarregando...")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar mapa (provavelmente muito grande): {e}")
