@@ -563,7 +563,7 @@ with tab_genealogia:
             st.graphviz_chart(st.session_state.arvore_dot)
         except Exception as e: st.error(f"Erro visual: {e}")
 
-# === ABA 8: CONEXÕES (NOVA ABA) ===
+# === ABA 8: CONEXÕES (CORRIGIDA PARA MODO ESCURO) ===
 with tab_conexoes:
     st.header("🕸️ Teia de Influência")
     if not api_key: st.warning("Insira a API Key.")
@@ -573,19 +573,47 @@ with tab_conexoes:
             with st.spinner("Desenhando a teia..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
+                    
+                    # --- PROMPT CORRIGIDO PARA MODO ESCURO ---
                     prompt_grafo = f"""
-                    Atue como Espião. GRAPHVIZ DOT (layout=neato).
-                    Nós: Reinos(box, gold), Pessoas(ellipse, white). Arestas: Aliado(green), Inimigo(red).
+                    Atue como um Mestre de Espionagem.
+                    TAREFA: Desenhe um GRAFO DE CONEXÕES (Graphviz DOT) focado em legibilidade no modo escuro.
+                    
+                    REGRAS OBRIGATÓRIAS DE ESTILO (DARK MODE):
+                    1. Inicie o grafo assim:
+                       digraph G {{
+                           bgcolor="#0e1117";  // Fundo igual ao do App
+                           layout=neato;
+                           overlap=false;
+                           splines=curved;
+                           // Configuração Global de Fontes Claras
+                           edge [fontcolor="white" color="#888888" fontsize=10 fontname="Arial"];
+                           node [fontcolor="white" fontname="Arial" style=filled];
+                       }}
+                    
+                    2. ESTILO DOS NÓS (NODES):
+                       - REINOS/FACÇÕES: shape=box, fillcolor="#242424", color="#e6c200", fontcolor="#e6c200", penwidth=2
+                       - PESSOAS/DEUSES: shape=ellipse, fillcolor="#000000", color="#ffffff", fontcolor="white"
+                    
+                    3. ESTILO DAS LINHAS (EDGES):
+                       - IMPORTANTE: O texto da linha (label) DEVE ser 'fontcolor="white"'.
+                       - Aliado/Amigo: color="#44ff44" (Verde Neon)
+                       - Inimigo/Guerra: color="#ff4444" (Vermelho Neon)
+                       - Suserano/Influência: color="#e6c200" (Dourado)
+                    
+                    Identifique as 15 conexões mais vitais.
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    RESPONDA APENAS CODIGO DOT.
+                    
+                    RESPONDA APENAS COM O CÓDIGO DOT ENTRE CRASES.
                     """
+                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_grafo)
                     dot_code = extrair_dot(res.text)
                     if dot_code:
                         st.session_state.grafo_dot = dot_code
                         salvar_cache_analise("grafo_dot", dot_code)
-                        st.success("Feito!")
+                        st.success("Feito! Contraste ajustado.")
                         st.rerun()
                     else: st.error("Erro no DOT.")
                 except Exception as e: st.error(f"Erro: {e}")
