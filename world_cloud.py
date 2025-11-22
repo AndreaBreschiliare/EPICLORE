@@ -91,7 +91,7 @@ except Exception as e:
 # --- ABAS ---
 tab_editor, tab_chat, tab_aval, tab_sugestao = st.tabs(["✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões"])
 
-# === ABA 1: EDITOR ===
+# === ABA 1: EDITOR (Visual: Meia Página | Capacidade: Infinita) ===
 with tab_editor:
     st.info("As alterações são salvas automaticamente na nuvem.")
     def criar_secao_editor(titulo, filtro):
@@ -106,7 +106,11 @@ with tab_editor:
             if mostrar:
                 with cols[idx % 2]:
                     val_atual = lore_data.get(cat, "")
-                    novo_val = st.text_area(cat, value=val_atual, height=150, key=f"txt_{cat}")
+                    
+                    # AJUSTE FINO: 500px de altura visual.
+                    # Pode colar 300 páginas aqui que ele cria barra de rolagem.
+                    novo_val = st.text_area(cat, value=val_atual, height=500, key=f"txt_{cat}")
+                    
                     if st.button(f"💾 Salvar {cat}", key=f"btn_{cat}"):
                         salvar_categoria(cat, novo_val)
                         st.success("Salvo!")
@@ -165,58 +169,35 @@ with tab_aval:
                     else: st.write(res.text)
                 except Exception as e: st.error(str(e))
 
-# === ABA 4: SUGESTÕES (NOVA) ===
+# === ABA 4: SUGESTÕES ===
 with tab_sugestao:
     st.header("💡 Co-Autor Criativo")
-    st.markdown("A IA vai ler o que você já tem e sugerir **novos conteúdos** para preencher lacunas ou enriquecer cada seção.")
-
-    if "sugestoes_ia" not in st.session_state:
-        st.session_state.sugestoes_ia = {}
-
     if not api_key:
         st.warning("Insira a API Key para gerar sugestões.")
     else:
-        if st.button("✨ Gerar Sugestões para TODAS as Seções", type="primary"):
-            with st.spinner("A IA está sonhando com seu mundo... isso pode levar uns 30 segundos."):
+        if "sugestoes_ia" not in st.session_state:
+            st.session_state.sugestoes_ia = {}
+            
+        if st.button("✨ Gerar Sugestões", type="primary"):
+            with st.spinner("Sonhando com seu mundo..."):
                 try:
-                    lore_ativo = {k:v for k,v in lore_data.items()} # Manda tudo, mesmo vazio
-                    
+                    lore_ativo = {k:v for k,v in lore_data.items()}
                     prompt_sugestao = f"""
                     Atue como um Co-Autor de Fantasia Criativa.
-                    Eu vou te dar o LORE ATUAL do meu mundo (JSON).
-                    
-                    SUA TAREFA:
-                    Para CADA categoria listada abaixo, escreva uma SUGESTÃO curta (2 a 3 frases) de conteúdo novo.
-                    - Se a categoria estiver vazia: Sugira um conceito inicial legal.
-                    - Se já tiver texto: Sugira um plot twist, um segredo ou uma conexão com outra parte do lore.
-                    
-                    LORE ATUAL:
-                    {json.dumps(lore_ativo, ensure_ascii=False)}
-
-                    CATEGORIAS PARA SUGERIR:
-                    {json.dumps(CATEGORIAS, ensure_ascii=False)}
-
-                    FORMATO OBRIGATÓRIO DE RESPOSTA (JSON PURO):
-                    {{
-                        "Facções": "Sugestão aqui...",
-                        "Timeline - Elfos": "Sugestão aqui...",
-                        ... para todas as chaves ...
-                    }}
+                    SUA TAREFA: Para CADA categoria listada abaixo, escreva uma SUGESTÃO curta.
+                    LORE ATUAL: {json.dumps(lore_ativo, ensure_ascii=False)}
+                    CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
+                    FORMATO JSON PURO: {{ "Categoria": "Sugestão...", ... }}
                     """
-                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_sugestao)
                     sugestoes_novas = extrair_json(res.text)
-                    
                     if sugestoes_novas:
                         st.session_state.sugestoes_ia = sugestoes_novas
-                        st.success("Sugestões geradas! Veja abaixo.")
-                    else:
-                        st.error("A IA não retornou um JSON válido. Tente de novo.")
-                except Exception as e:
-                    st.error(f"Erro ao gerar sugestões: {e}")
+                        st.success("Sugestões geradas!")
+                    else: st.error("Erro no JSON.")
+                except Exception as e: st.error(f"Erro: {e}")
 
-    # Exibição das Sugestões (Mesmo Layout do Editor)
     def criar_secao_sugestao(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
@@ -228,11 +209,9 @@ with tab_sugestao:
             
             if mostrar:
                 with cols[idx % 2]:
-                    # Pega a sugestão da memória, ou mostra msg padrão
-                    sugestao = st.session_state.sugestoes_ia.get(cat, "Clique no botão acima para gerar sugestões.")
-                    st.text_area(f"💡 Ideia para: {cat}", value=sugestao, height=120, key=f"sug_{cat}", disabled=False)
-                    # Dica visual
-                    if sugestao != "Clique no botão acima para gerar sugestões.":
+                    sugestao = st.session_state.sugestoes_ia.get(cat, "Clique no botão acima para gerar.")
+                    st.text_area(f"💡 Ideia para: {cat}", value=sugestao, height=250, key=f"sug_{cat}", disabled=False)
+                    if sugestao != "Clique no botão acima para gerar.":
                         st.caption("Gostou? Copie e cole na aba 'Editor'.")
                 idx += 1
         st.divider()
