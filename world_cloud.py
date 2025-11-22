@@ -10,9 +10,7 @@ st.set_page_config(page_title="World Architect Cloud", layout="wide", page_icon=
 st.title("☁️ World Architect: Lore Colaborativo")
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
-# Verifica se já não inicializou para não dar erro de duplicidade
 if not firebase_admin._apps:
-    # Tenta pegar as credenciais dos "Segredos" do Streamlit Cloud
     key_dict = json.loads(st.secrets["textkey"])
     cred = credentials.Certificate(key_dict)
     firebase_admin.initialize_app(cred)
@@ -21,19 +19,16 @@ db = firestore.client()
 
 # --- 2. FUNÇÕES DE LEITURA/ESCRITA NA NUVEM ---
 def carregar_lore():
-    # Busca o documento "lore_oficial" na coleção "mundos"
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc = doc_ref.get()
     if doc.exists:
         return doc.to_dict()
     else:
-        # Se não existir, cria vazio
         dados_iniciais = {cat: "" for cat in CATEGORIAS}
         doc_ref.set(dados_iniciais)
         return dados_iniciais
 
 def salvar_categoria(categoria, texto):
-    # Atualiza apenas o campo específico no banco (merge=True)
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc_ref.set({categoria: texto}, merge=True)
 
@@ -48,10 +43,30 @@ CATEGORIAS = [
 ]
 
 # --- 4. INTERFACE ---
-# Barra Lateral para API do Gemini (Cada usuário põe a sua ou você deixa uma fixa nos segredos)
+# Barra Lateral para API do Gemini
+st.sidebar.header("Configuração IA")
 api_key = st.sidebar.text_input("Sua Google API Key (Gemini)", type="password")
+
+modelo_escolhido = "gemini-pro" # Fallback seguro
+
 if api_key:
     genai.configure(api_key=api_key)
+    try:
+        # Busca dinâmica de modelos para evitar erro 404
+        lista_modelos = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                # Remove modelos experimentais instáveis da lista
+                if "exp" not in m.name:
+                    lista_modelos.append(m.name)
+        
+        if lista_modelos:
+            # Tenta deixar o flash como primeira opção
+            lista_modelos.sort(key=lambda x: "flash" not in x)
+            st.sidebar.success(f"IA Conectada! {len(lista_modelos)} modelos.")
+            modelo_escolhido = st.sidebar.selectbox("Escolha o Modelo:", lista_modelos, index=0)
+    except Exception as e:
+        st.sidebar.error(f"Erro ao listar modelos: {e}")
 
 # Carrega dados da Nuvem
 try:
@@ -66,30 +81,25 @@ tab_editor, tab_chat = st.tabs(["✍️ Editor Compartilhado", "🧠 Chat com a 
 with tab_editor:
     st.warning("⚠️ Atenção: As alterações aqui são salvas na nuvem para TODOS os usuários instantaneamente.")
     
-    # Lógica de exibição agrupada
     def criar_secao(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
         idx = 0
         for cat in CATEGORIAS:
-            if filtro in cat or (filtro == "Geral" and "Timeline" not in cat and "Povo" not in cat):
-                # Filtro meio 'gambiarra' para simplificar, mas funciona
-                mostrar = False
-                if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
-                elif filtro != "Geral" and filtro in cat: mostrar = True
-                
-                if mostrar:
-                    with cols[idx % 2]:
-                        val_atual = lore_data.get(cat, "")
-                        # Key única para o widget
-                        novo_val = st.text_area(cat, value=val_atual, height=150, key=f"txt_{cat}")
-                        
-                        # Botão de Salvar Individual (Melhor para nuvem para economizar escritas)
-                        if st.button(f"💾 Salvar {cat}", key=f"btn_{cat}"):
-                            salvar_categoria(cat, novo_val)
-                            st.success("Salvo na nuvem!")
-                            st.rerun()
-                    idx += 1
+            mostrar = False
+            if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
+            elif filtro != "Geral" and filtro in cat: mostrar = True
+            
+            if mostrar:
+                with cols[idx % 2]:
+                    val_atual = lore_data.get(cat, "")
+                    novo_val = st.text_area(cat, value=val_atual, height=150, key=f"txt_{cat}")
+                    
+                    if st.button(f"💾 Salvar {cat}", key=f"btn_{cat}"):
+                        salvar_categoria(cat, novo_val)
+                        st.success("Salvo na nuvem!")
+                        st.rerun()
+                idx += 1
         st.divider()
 
     criar_secao("📜 Documentos Gerais", "Geral")
@@ -100,7 +110,7 @@ with tab_editor:
 with tab_chat:
     st.header("Oráculo da Lore")
     if not api_key:
-        st.warning("Insira a chave do Gemini na esquerda.")
+        st.warning("Insira a chave do Gemini na esquerda para habilitar o chat.")
     else:
         if "messages" not in st.session_state:
             st.session_state.messages = []
@@ -114,17 +124,26 @@ with tab_chat:
             with st.chat_message("user"):
                 st.markdown(prompt)
             
-            # Pega dados frescos do banco
+            # Pega dados frescos do banco e remove vazios
             lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
             contexto = json.dumps(lore_ativo, ensure_ascii=False)
             
-            sys_prompt = f"Você é o assistente do mundo. Lore:\n{contexto}\nUsuário: {prompt}"
+            sys_prompt = f"""
+            Você é o co-autor deste mundo. Use APENAS este Lore:
+            ---
+            {contexto}
+            ---
+            Responda a pergunta do usuário. Se houver contradições no texto, aponte-as.
+            Pergunta: {prompt}
+            """
             
             with st.chat_message("assistant"):
                 try:
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    # Usa o modelo selecionado no menu lateral
+                    model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(sys_prompt)
                     st.markdown(res.text)
                     st.session_state.messages.append({"role": "assistant", "content": res.text})
                 except Exception as e:
-                    st.error(str(e))
+                    st.error(f"Erro na IA ({modelo_escolhido}): {e}")
+                    st.caption("Tente trocar o modelo na barra lateral.")
