@@ -89,9 +89,9 @@ except Exception as e:
     st.stop()
 
 # --- ABAS ---
-tab_editor, tab_chat, tab_aval, tab_sugestao = st.tabs(["✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões"])
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros = st.tabs(["✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências"])
 
-# === ABA 1: EDITOR (Visual: Meia Página | Capacidade: Infinita) ===
+# === ABA 1: EDITOR ===
 with tab_editor:
     st.info("As alterações são salvas automaticamente na nuvem.")
     def criar_secao_editor(titulo, filtro):
@@ -106,11 +106,7 @@ with tab_editor:
             if mostrar:
                 with cols[idx % 2]:
                     val_atual = lore_data.get(cat, "")
-                    
-                    # AJUSTE FINO: 500px de altura visual.
-                    # Pode colar 300 páginas aqui que ele cria barra de rolagem.
                     novo_val = st.text_area(cat, value=val_atual, height=500, key=f"txt_{cat}")
-                    
                     if st.button(f"💾 Salvar {cat}", key=f"btn_{cat}"):
                         salvar_categoria(cat, novo_val)
                         st.success("Salvo!")
@@ -172,22 +168,18 @@ with tab_aval:
 # === ABA 4: SUGESTÕES ===
 with tab_sugestao:
     st.header("💡 Co-Autor Criativo")
-    if not api_key:
-        st.warning("Insira a API Key para gerar sugestões.")
+    if not api_key: st.warning("Insira a API Key.")
     else:
-        if "sugestoes_ia" not in st.session_state:
-            st.session_state.sugestoes_ia = {}
-            
+        if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
         if st.button("✨ Gerar Sugestões", type="primary"):
             with st.spinner("Sonhando com seu mundo..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items()}
                     prompt_sugestao = f"""
-                    Atue como um Co-Autor de Fantasia Criativa.
-                    SUA TAREFA: Para CADA categoria listada abaixo, escreva uma SUGESTÃO curta.
-                    LORE ATUAL: {json.dumps(lore_ativo, ensure_ascii=False)}
+                    Atue como Co-Autor. Para CADA categoria, escreva uma SUGESTÃO curta.
+                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
-                    FORMATO JSON PURO: {{ "Categoria": "Sugestão...", ... }}
+                    JSON: {{ "Categoria": "Sugestão...", ... }}
                     """
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_sugestao)
@@ -206,13 +198,10 @@ with tab_sugestao:
             mostrar = False
             if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
             elif filtro != "Geral" and filtro in cat: mostrar = True
-            
             if mostrar:
                 with cols[idx % 2]:
-                    sugestao = st.session_state.sugestoes_ia.get(cat, "Clique no botão acima para gerar.")
-                    st.text_area(f"💡 Ideia para: {cat}", value=sugestao, height=250, key=f"sug_{cat}", disabled=False)
-                    if sugestao != "Clique no botão acima para gerar.":
-                        st.caption("Gostou? Copie e cole na aba 'Editor'.")
+                    sugestao = st.session_state.sugestoes_ia.get(cat, "...")
+                    st.text_area(f"💡 {cat}", value=sugestao, height=250, key=f"sug_{cat}", disabled=True)
                 idx += 1
         st.divider()
 
@@ -220,3 +209,91 @@ with tab_sugestao:
         criar_secao_sugestao("Sugestões: Gerais", "Geral")
         criar_secao_sugestao("Sugestões: Timeline", "Timeline")
         criar_secao_sugestao("Sugestões: Povos", "Povo")
+
+# === ABA 5: INCOERÊNCIAS (V13 - Bullet Points) ===
+with tab_erros:
+    st.header("⚡ Detector de Incoerências e Falhas Lógicas")
+    st.markdown("Esta ferramenta faz um **Cruzamento de Dados** entre todos os textos.")
+
+    if "erros_ia" not in st.session_state:
+        st.session_state.erros_ia = {}
+
+    if not api_key:
+        st.warning("Insira a API Key.")
+    else:
+        if st.button("🔥 Rastrear Contradições em Todo o Lore", type="primary"):
+            with st.spinner("O Grande Inquisidor está lendo cada linha em busca de mentiras..."):
+                try:
+                    lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
+                    
+                    # --- O PROMPT MAGNÍFICO ATUALIZADO ---
+                    prompt_erros = f"""
+                    ATENÇÃO: Você é um Auditor de Continuidade Lógica (Continuity Editor).
+                    
+                    OBJETIVO: Cruzar dados de TODOS os textos para achar contradições.
+                    
+                    REGRAS ESTRITAS:
+                    1. Se o texto A diz X e o texto B diz Y sobre a mesma coisa, ISSO É UM ERRO.
+                    2. Se a cronologia não bate (datas impossíveis, gente morrendo antes de nascer), ISSO É UM ERRO.
+                    
+                    FORMATO OBRIGATÓRIO DE SAÍDA (JSON):
+                    {{
+                        "Nome da Categoria": "• 🔴 ERRO CRÍTICO: Descrição do erro.\\n• 🟡 ALERTA: Descrição do aviso.",
+                        "Outra Categoria": "• 🔴 O ano 500 contradiz a Timeline.\\n• 🟡 Falta explicar a origem do recurso."
+                    }}
+                    
+                    IMPORTANTE:
+                    - Use Bullet Points (•) para cada erro separado.
+                    - Use Emojis (🔴, 🟡, 🟠) para indicar gravidade.
+                    - Se a categoria não tiver erros, NÃO a inclua no JSON.
+                    
+                    LORE COMPLETO:
+                    {json.dumps(lore_ativo, ensure_ascii=False)}
+
+                    CATEGORIAS:
+                    {json.dumps(CATEGORIAS, ensure_ascii=False)}
+                    """
+                    
+                    model = genai.GenerativeModel(modelo_escolhido)
+                    res = model.generate_content(prompt_erros)
+                    erros_detectados = extrair_json(res.text)
+                    
+                    if erros_detectados:
+                        st.session_state.erros_ia = erros_detectados
+                        st.success("Varredura completa! Veja os alertas vermelhos abaixo.")
+                    else:
+                        st.info("O Inquisidor não retornou um JSON válido (talvez não tenha encontrado erros graves).")
+                        st.write(res.text)
+                except Exception as e:
+                    st.error(f"Erro na varredura: {e}")
+
+    # Exibição dos Erros (Bullet Points Renderizados)
+    def criar_secao_erros(titulo, filtro):
+        st.markdown(f"### {titulo}")
+        cols = st.columns(2)
+        idx = 0
+        for cat in CATEGORIAS:
+            mostrar = False
+            if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
+            elif filtro != "Geral" and filtro in cat: mostrar = True
+            
+            if mostrar:
+                with cols[idx % 2]:
+                    val_atual = lore_data.get(cat, "")
+                    # Caixa de visualização do texto original (cinza)
+                    st.text_area(f"📄 {cat} (Texto Original)", value=val_atual, height=150, disabled=True, key=f"view_{cat}")
+                    
+                    # Caixa de ERRO (Vermelha) se houver incoerência
+                    erro_msg = st.session_state.erros_ia.get(cat, None)
+                    if erro_msg:
+                        # st.error aceita Markdown, então os bullet points vão ficar bonitos
+                        st.error(f"🚨 **PROBLEMAS ENCONTRADOS:**\n\n{erro_msg}")
+                    else:
+                        st.success("✅ Nenhuma contradição óbvia encontrada.")
+                idx += 1
+        st.divider()
+
+    if st.session_state.erros_ia:
+        criar_secao_erros("Análise: Gerais", "Geral")
+        criar_secao_erros("Análise: Timeline", "Timeline")
+        criar_secao_erros("Análise: Povos", "Povo")
