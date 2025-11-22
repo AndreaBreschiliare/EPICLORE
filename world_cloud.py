@@ -13,6 +13,12 @@ import io
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
 st.title("🏰 World Architect: Lore & Co-Autor")
 
+# --- INICIALIZAÇÃO SEGURA DE ESTADO (CORREÇÃO DO BUG) ---
+if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
+if "erros_ia" not in st.session_state: st.session_state.erros_ia = {}
+if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = ""
+if "messages" not in st.session_state: st.session_state.messages = []
+
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
 if not firebase_admin._apps:
     try:
@@ -61,28 +67,16 @@ def extrair_json(texto):
     except:
         return None
 
-# --- FUNÇÃO DE COMPRESSÃO DE IMAGEM ---
 def comprimir_imagem(arquivo_upload):
-    # Abre a imagem com a biblioteca Pillow
     image = Image.open(arquivo_upload)
-    
-    # Converte para RGB (caso seja PNG com transparência ou WebP)
-    if image.mode in ("RGBA", "P"):
-        image = image.convert("RGB")
-    
-    # Redimensiona se for muito grande (max largura 1600px)
+    if image.mode in ("RGBA", "P"): image = image.convert("RGB")
     max_width = 1600
     if image.width > max_width:
         ratio = max_width / float(image.width)
         new_height = int((float(image.height) * float(ratio)))
         image = image.resize((max_width, new_height), Image.Resampling.LANCZOS)
-    
-    # Salva num buffer de memória em formato JPEG otimizado
     buffer = io.BytesIO()
-    # Qualidade 85 é ótima e reduz muito o tamanho
     image.save(buffer, format="JPEG", quality=85, optimize=True)
-    
-    # Converte para Base64
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 # --- 3. LISTA DE CATEGORIAS ---
@@ -157,7 +151,6 @@ with tab_chat:
     st.header("Oráculo da Lore")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if "messages" not in st.session_state: st.session_state.messages = []
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]): st.markdown(msg["content"])
         if prompt := st.chat_input("Pergunte ao Lore..."):
@@ -182,7 +175,7 @@ with tab_aval:
             with st.spinner("Auditando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    prompt_auditoria = f"""Atue como Crítico Literário. Analise: {json.dumps(lore_ativo, ensure_ascii=False)}. Avalie os 10 pilares. JSON: [{{ "titulo": "...", "nota": 8, "analise": "...", "melhorias": "..." }}]"""
+                    prompt_auditoria = f"""Atue como Crítico. Analise: {json.dumps(lore_ativo, ensure_ascii=False)}. 10 pilares. JSON: [{{ "titulo": "...", "nota": 8, "analise": "...", "melhorias": "..." }}]"""
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_auditoria)
                     dados = extrair_json(res.text)
@@ -200,12 +193,11 @@ with tab_sugestao:
     st.header("💡 Co-Autor Criativo")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
         if st.button("✨ Gerar Sugestões", type="primary"):
             with st.spinner("Sonhando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items()}
-                    prompt = f"""Atue como Co-Autor. JSON de sugestões curtas para: {json.dumps(CATEGORIAS, ensure_ascii=False)}. LORE: {json.dumps(lore_ativo, ensure_ascii=False)}"""
+                    prompt = f"""Atue como Co-Autor. JSON sugestões para: {json.dumps(CATEGORIAS, ensure_ascii=False)}. LORE: {json.dumps(lore_ativo, ensure_ascii=False)}"""
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt)
                     dados = extrair_json(res.text)
@@ -225,35 +217,76 @@ with tab_sugestao:
             elif filtro != "Geral" and filtro in cat: mostrar = True
             if mostrar:
                 with cols[idx % 2]:
+                    # Usa .get com valor default seguro
                     sug = st.session_state.sugestoes_ia.get(cat, "...")
                     st.text_area(f"💡 {cat}", value=sug, height=250, disabled=True)
                 idx += 1
         st.divider()
+        
     if st.session_state.sugestoes_ia:
         criar_secao_sugestao("Geral", "Geral")
         criar_secao_sugestao("Timeline", "Timeline")
         criar_secao_sugestao("Povos", "Povo")
 
-# === ABA 5: INCOERÊNCIAS ===
+# === ABA 5: INCOERÊNCIAS (ATUALIZADA) ===
 with tab_erros:
-    st.header("⚡ Detector de Incoerências")
-    if "erros_ia" not in st.session_state: st.session_state.erros_ia = {}
+    st.header("⚡ Detector de Incoerências e Falhas Lógicas")
+    
+    # 1. Resumo da Metodologia
+    with st.expander("📘 Metodologia do Inquisidor (Como funciona?)", expanded=False):
+        st.markdown("""
+        **O Método de Cruzamento de Dados (N x N):**
+        A IA lê todos os textos simultaneamente e cria uma "matriz de fatos".
+        
+        1.  **Verificação Cronológica:** Ela compara todas as datas mencionadas nas Timelines com as biografias e eventos dos Povos.
+        2.  **Verificação Lógica:** Se um texto diz que "A magia é proibida" e outro diz que "O Rei é um mago", ela aponta o conflito.
+        3.  **Verificação de Recursos:** Ela checa se a economia e os recursos citados em uma parte sustentam as descrições militares em outra.
+        """)
+
     if not api_key: st.warning("Insira a API Key.")
     else:
         if st.button("🔥 Rastrear Contradições", type="primary"):
-            with st.spinner("Inquisidor trabalhando..."):
+            with st.spinner("O Grande Inquisidor está lendo cada linha em busca de mentiras..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    prompt = f"""Auditor Lógico. Ache contradições. JSON: {{ "Categoria": "• 🔴 ERRO: ...", ... }}. LORE: {json.dumps(lore_ativo, ensure_ascii=False)}"""
+                    prompt_erros = f"""
+                    ATENÇÃO: Você é um Auditor de Continuidade Lógica.
+                    
+                    TAREFA:
+                    1. Cruzar dados de TODOS os textos para achar contradições.
+                    2. Criar um RESUMO GERAL (Veredito) sobre a consistência do mundo.
+                    3. Listar erros específicos por categoria.
+                    
+                    FORMATO OBRIGATÓRIO DE SAÍDA (JSON):
+                    {{
+                        "resumo_geral": "Escreva aqui um parágrafo resumindo a saúde lógica do mundo. Ex: 'O mundo é consistente, mas a cronologia dos Elfos contradiz a Primeira Era...'",
+                        "detalhes": {{
+                            "Nome da Categoria": "• 🔴 ERRO: ...\\n• 🟡 ALERTA: ...",
+                            "Outra Categoria": "..."
+                        }}
+                    }}
+                    
+                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
+                    CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
+                    """
+                    
                     model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt)
-                    dados = extrair_json(res.text)
-                    if dados:
-                        st.session_state.erros_ia = dados
-                        st.success("Feito!")
+                    res = model.generate_content(prompt_erros)
+                    dados_json = extrair_json(res.text)
+                    
+                    if dados_json:
+                        # Salva o resumo e os detalhes separadamente
+                        st.session_state.resumo_erros = dados_json.get("resumo_geral", "Sem resumo.")
+                        st.session_state.erros_ia = dados_json.get("detalhes", {})
+                        st.success("Varredura completa!")
                     else: st.write(res.text)
-                except Exception as e: st.error(str(e))
-    
+                except Exception as e: st.error(f"Erro: {e}")
+
+    # 2. Exibição do Veredito Geral
+    if st.session_state.resumo_erros:
+        st.info(f"📝 **Veredito dos Achados:**\n\n{st.session_state.resumo_erros}")
+
+    # 3. Exibição por Categoria
     def criar_secao_erros(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
@@ -265,38 +298,33 @@ with tab_erros:
             if mostrar:
                 with cols[idx % 2]:
                     val = lore_data.get(cat, "")
-                    st.text_area(f"📄 {cat}", value=val, height=150, disabled=True)
+                    st.text_area(f"📄 {cat}", value=val, height=150, disabled=True, key=f"view_{cat}")
+                    
+                    # Busca o erro na lista de detalhes
                     erro = st.session_state.erros_ia.get(cat, None)
-                    if erro: st.error(f"🚨 {erro}")
+                    if erro: st.error(f"🚨 **PROBLEMAS:**\n\n{erro}")
                     else: st.success("✅ OK")
                 idx += 1
         st.divider()
+        
     if st.session_state.erros_ia:
         criar_secao_erros("Geral", "Geral")
         criar_secao_erros("Timeline", "Timeline")
         criar_secao_erros("Povos", "Povo")
 
-# === ABA 6: MAPA (COM COMPRESSOR) ===
+# === ABA 6: MAPA ===
 with tab_mapa:
     st.header("🗺️ Cartografia Oficial")
     mapa_b64 = carregar_mapa()
-    if mapa_b64:
-        st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi", use_container_width=True)
+    if mapa_b64: st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi", use_container_width=True)
     else: st.info("Sem mapa.")
-
     st.markdown("---")
-    st.subheader("Atualizar Mapa")
-    st.warning("⚠️ O sistema comprimirá automaticamente para caber no banco.")
-    
     arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
-    
     if arquivo_mapa:
         if st.button("📤 Enviar para a Nuvem"):
             try:
-                # Compressa antes de enviar
                 b64_string = comprimir_imagem(arquivo_mapa)
                 salvar_mapa_b64(b64_string)
-                st.success("Mapa comprimido e salvo com sucesso! Recarregando...")
+                st.success("Salvo!")
                 st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao salvar mapa: {e}")
+            except Exception as e: st.error(str(e))
