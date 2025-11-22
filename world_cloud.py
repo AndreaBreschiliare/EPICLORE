@@ -90,6 +90,8 @@ if "glossario" not in st.session_state: st.session_state.glossario = {}
 if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = ""
 if "timeline_dados" not in st.session_state: st.session_state.timeline_dados = []
 if "dashboard_dados" not in st.session_state: st.session_state.dashboard_dados = []
+# NOVO: Cache do Grafo de Conexões
+if "grafo_dot" not in st.session_state: st.session_state.grafo_dot = ""
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
 if not firebase_admin._apps:
@@ -194,6 +196,8 @@ if not st.session_state.glossario: st.session_state.glossario = caches_salvos.ge
 if not st.session_state.arvore_dot: st.session_state.arvore_dot = caches_salvos.get("arvore_dot", "")
 if not st.session_state.timeline_dados: st.session_state.timeline_dados = caches_salvos.get("timeline_dados", [])
 if not st.session_state.dashboard_dados: st.session_state.dashboard_dados = caches_salvos.get("dashboard_dados", [])
+# NOVO CACHE
+if not st.session_state.grafo_dot: st.session_state.grafo_dot = caches_salvos.get("grafo_dot", "")
 
 # --- 5. INTERFACE ---
 st.sidebar.header("⚙️ Configuração Mágica")
@@ -224,9 +228,10 @@ except Exception as e:
 # --- ABAS ---
 abas = [
     "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
-    "📚 Glossário", "🌳 Genealogia", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa"
+    "📚 Glossário", "🌳 Genealogia", "🕸️ Teia de Conexões", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa"
 ]
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_timeline, tab_dashboard, tab_mapa = st.tabs(abas)
+# Adicionado tab_conexoes
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_conexoes, tab_timeline, tab_dashboard, tab_mapa = st.tabs(abas)
 
 # === ABA 1: EDITOR ===
 with tab_editor:
@@ -489,7 +494,57 @@ with tab_genealogia:
             st.graphviz_chart(st.session_state.arvore_dot)
         except Exception as e: st.error(f"Erro visual: {e}")
 
-# === ABA 8: TIMELINE VISUAL (LIMPA E INTERATIVA) ===
+# === ABA 8: TEIA DE CONEXÕES (NOVA) ===
+with tab_conexoes:
+    st.header("🕸️ Teia de Influência Geopolítica")
+    st.markdown("Mapa visual de aliados (Verde), inimigos (Vermelho) e suseranos (Dourado).")
+
+    if not api_key: st.warning("Insira a API Key.")
+    else:
+        if st.session_state.grafo_dot: st.success("📂 Rede carregada.")
+        if st.button("🔄 Mapear Teia Política"):
+            with st.spinner("Desenhando a teia de intrigas..."):
+                try:
+                    lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
+                    
+                    prompt_grafo = f"""
+                    Atue como um Mestre de Espionagem.
+                    TAREFA: Leia o lore e desenhe um GRAFO DE CONEXÕES (Graphviz DOT) entre Reinos, Facções e Personagens Chave.
+                    
+                    REGRAS VISUAIS OBRIGATÓRIAS:
+                    1. Use 'digraph G {{ layout=neato; overlap=false; splines=true; bgcolor="#0e1117"; ... }}'
+                    2. ESTILO DOS NÓS:
+                       - Reinos/Povos: shape=box, style=filled, fillcolor="#2b2b2b", fontcolor="white", color="#e6c200"
+                       - Personagens: shape=ellipse, style=filled, fillcolor="#1a1a1a", fontcolor="white", color="white"
+                    3. ESTILO DAS ARESTAS (Use cores para indicar relação):
+                       - Aliado/Amigo/Comércio: color="#00ff00" (Verde Neon)
+                       - Inimigo/Guerra/Rival: color="#ff0000" (Vermelho Neon)
+                       - Suserano/Vassalo/Neutro: color="#e6c200" (Dourado)
+                    
+                    Identifique as 15-20 conexões mais importantes.
+                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
+                    
+                    RESPONDA APENAS COM O CÓDIGO DOT ENTRE CRASES.
+                    """
+                    
+                    model = genai.GenerativeModel(modelo_escolhido)
+                    res = model.generate_content(prompt_grafo)
+                    dot_code = extrair_dot(res.text)
+                    
+                    if dot_code:
+                        st.session_state.grafo_dot = dot_code
+                        salvar_cache_analise("grafo_dot", dot_code)
+                        st.success("Teia gerada!")
+                        st.rerun()
+                    else: st.error("Erro ao gerar DOT.")
+                except Exception as e: st.error(f"Erro: {e}")
+
+    if st.session_state.grafo_dot:
+        try:
+            st.graphviz_chart(st.session_state.grafo_dot)
+        except Exception as e: st.error(f"Erro visual: {e}")
+
+# === ABA 9: TIMELINE VISUAL ===
 with tab_timeline:
     st.header("📉 A Marcha do Tempo")
     if not api_key: st.warning("Insira a API Key.")
@@ -519,18 +574,10 @@ with tab_timeline:
         try:
             df = pd.DataFrame(st.session_state.timeline_dados)
             if not df.empty:
-                # AQUI ESTÁ A MUDANÇA PRINCIPAL PARA LIMPAR O GRÁFICO
                 fig = px.scatter(
-                    df, 
-                    x="ano_numerico", 
-                    y="grupo", 
-                    # REMOVIDO O text="evento" QUE SUJAVA A TELA
-                    hover_name="data_exibicao", # Título do Tooltip
-                    hover_data={"ano_numerico": False, "grupo": False, "evento": True}, # Mostra o texto só no mouse
-                    color="grupo", 
-                    title="Linha do Tempo (Passe o mouse para ler)", 
-                    height=600,
-                    size_max=15 # Bolinhas maiores
+                    df, x="ano_numerico", y="grupo", hover_name="data_exibicao", 
+                    hover_data={"ano_numerico": False, "grupo": False, "evento": True}, 
+                    color="grupo", title="Linha do Tempo (Passe o mouse)", height=600, size_max=15
                 )
                 fig.update_traces(marker=dict(size=14, line=dict(width=2, color='#e6c200')))
                 fig.update_layout(
@@ -541,7 +588,7 @@ with tab_timeline:
             else: st.warning("Sem dados.")
         except Exception as e: st.error(f"Erro gráfico: {e}")
 
-# === ABA 9: DASHBOARDS ===
+# === ABA 10: DASHBOARDS ===
 with tab_dashboard:
     st.header("📊 Sala de Guerra: Poder & Influência")
     
@@ -646,7 +693,7 @@ with tab_dashboard:
             )
             st.plotly_chart(fig_radar, use_container_width=True)
 
-# === ABA 10: MAPA ===
+# === ABA 11: MAPA ===
 with tab_mapa:
     st.header("🗺️ Cartografia")
     mapa_b64 = carregar_mapa()
