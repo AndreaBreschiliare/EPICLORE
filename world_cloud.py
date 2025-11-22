@@ -8,14 +8,17 @@ import re
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
-st.title("🏰 World Architect: Lore & Auditoria")
+st.title("🏰 World Architect: Lore & Co-Autor")
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
 if not firebase_admin._apps:
-    # Carrega a chave dos Segredos
-    key_dict = json.loads(st.secrets["textkey"])
-    cred = credentials.Certificate(key_dict)
-    firebase_admin.initialize_app(cred)
+    try:
+        key_dict = json.loads(st.secrets["textkey"])
+        cred = credentials.Certificate(key_dict)
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.error(f"Erro no Segredo (Secrets): {e}")
+        st.stop()
 
 db = firestore.client()
 
@@ -26,7 +29,6 @@ def carregar_lore():
     if doc.exists:
         return doc.to_dict()
     else:
-        # Cria documento vazio se não existir
         dados_iniciais = {cat: "" for cat in CATEGORIAS}
         doc_ref.set(dados_iniciais)
         return dados_iniciais
@@ -45,33 +47,19 @@ def extrair_json(texto):
     except:
         return None
 
-# --- 3. LISTA DE CATEGORIAS (ATUALIZADA V7) ---
+# --- 3. LISTA DE CATEGORIAS ---
 CATEGORIAS = [
     # --- NOVAS ---
-    "Absencia - Caos", 
-    "Radiancia - Ordem", 
-    "Warp", 
-    "Os 4 Cavaleiros",
-    
+    "Absencia - Caos", "Radiancia - Ordem", "Warp", "Os 4 Cavaleiros",
     # --- GERAIS ---
     "Facções", "Epic! Aetherius", "Resumo Primeira Era", "Resumo Segunda Era", 
     "Cosmogenese - Resumo", "Origem por Povos (Geral)",
-    
     # --- TIMELINE ---
-    "Timeline - Cataclisma", 
-    "Timeline - Badlands", # Nova
-    "Timeline - Elfos", "Timeline - Drows", 
+    "Timeline - Cataclisma", "Timeline - Badlands", "Timeline - Elfos", "Timeline - Drows", 
     "Timeline - Anões", "Timeline - Orcs", "Timeline - Humanos", "Timeline - Pequilhos",
-    
     # --- POVOS ---
     "Povo - Aiglana", "Povo - Haroloth", "Povo - Leste", "Povo - Bjorska", 
     "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
-]
-
-CRITERIOS_AUDITORIA = [
-    "1. Coerência Interna", "2. Profundidade Histórica", "3. Cultura e Antropologia",
-    "4. Sistema Político", "5. Economia e Recursos", "6. Magia e Tecnologia",
-    "7. Religião e Metafísica", "8. Ecologia e Geografia", "9. Conflitos Atuais", "10. Singularidade"
 ]
 
 # --- 4. INTERFACE ---
@@ -92,27 +80,26 @@ if api_key:
             lista_modelos.sort(key=lambda x: "flash" not in x)
             modelo_escolhido = st.sidebar.selectbox("Modelo IA:", lista_modelos, index=0)
     except Exception as e:
-        st.sidebar.error(f"Erro: {e}")
+        st.sidebar.error(f"Erro IA: {e}")
 
 try:
     lore_data = carregar_lore()
 except Exception as e:
-    st.error(f"Erro banco: {e}")
+    st.error(f"Erro Banco: {e}")
     st.stop()
 
 # --- ABAS ---
-tab_editor, tab_chat, tab_aval = st.tabs(["✍️ Editor", "🧠 Chat", "⚖️ Auditoria de Lore"])
+tab_editor, tab_chat, tab_aval, tab_sugestao = st.tabs(["✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões"])
 
 # === ABA 1: EDITOR ===
 with tab_editor:
     st.info("As alterações são salvas automaticamente na nuvem.")
-    def criar_secao(titulo, filtro):
+    def criar_secao_editor(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
         idx = 0
         for cat in CATEGORIAS:
             mostrar = False
-            # Lógica de exibição inteligente
             if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
             elif filtro != "Geral" and filtro in cat: mostrar = True
             
@@ -127,27 +114,23 @@ with tab_editor:
                 idx += 1
         st.divider()
 
-    criar_secao("📜 Documentos Gerais & Cosmologia", "Geral")
-    criar_secao("⏳ Timeline", "Timeline")
-    criar_secao("🏰 Povos", "Povo")
+    criar_secao_editor("📜 Documentos Gerais & Cosmologia", "Geral")
+    criar_secao_editor("⏳ Timeline", "Timeline")
+    criar_secao_editor("🏰 Povos", "Povo")
 
 # === ABA 2: CHAT ===
 with tab_chat:
     st.header("Oráculo da Lore")
-    if not api_key:
-        st.warning("Insira a API Key.")
+    if not api_key: st.warning("Insira a API Key.")
     else:
         if "messages" not in st.session_state: st.session_state.messages = []
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]): st.markdown(msg["content"])
-                
         if prompt := st.chat_input("Pergunte ao Lore..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"): st.markdown(prompt)
-            
             lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
             sys_prompt = f"Lore: {json.dumps(lore_ativo, ensure_ascii=False)}\nUsuário: {prompt}"
-            
             with st.chat_message("assistant"):
                 try:
                     model = genai.GenerativeModel(modelo_escolhido)
@@ -159,71 +142,102 @@ with tab_chat:
 # === ABA 3: AUDITORIA ===
 with tab_aval:
     st.header("⚖️ Auditoria de Worldbuilding")
-    st.markdown("A IA vai ler todo o seu mundo e avaliar os 10 pilares fundamentais.")
-    
-    if not api_key:
-        st.warning("Você precisa da API Key para rodar a auditoria.")
+    if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.button("🔍 Rodar Auditoria Completa (Pode levar 1 minuto)", type="primary"):
-            with st.spinner("O Auditor está lendo seus pergaminhos e julgando suas escolhas..."):
+        if st.button("🔍 Rodar Auditoria"):
+            with st.spinner("Auditando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    lore_txt = json.dumps(lore_ativo, ensure_ascii=False)
-                    
-                    # Prompt atualizado para considerar as novas categorias
                     prompt_auditoria = f"""
-                    Atue como um Crítico Literário Sênior especialista em Fantasia Medieval.
-                    Analise o seguinte LORE MUNDIAL:
-                    ---
-                    {lore_txt}
-                    ---
+                    Atue como Crítico Literário. Analise este LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
+                    Avalie os 10 pilares (Coerência, História, Cultura, Política, Economia, Magia, Religião, Geografia, Conflitos, Singularidade).
+                    RETORNE JSON: [{{ "titulo": "...", "nota": 8, "analise": "...", "melhorias": "..." }}]
+                    """
+                    model = genai.GenerativeModel(modelo_escolhido)
+                    res = model.generate_content(prompt_auditoria)
+                    dados = extrair_json(res.text)
+                    if dados:
+                        for item in dados:
+                            with st.expander(f"{item['titulo']} - Nota {item['nota']}"):
+                                st.progress(item['nota']/10)
+                                st.info(item['analise'])
+                                st.warning(item['melhorias'])
+                    else: st.write(res.text)
+                except Exception as e: st.error(str(e))
 
-                    Avalie com base nestes 10 critérios:
-                    1. Coerência Interna
-                    2. Profundidade Histórica
-                    3. Cultura e Antropologia
-                    4. Sistema Político
-                    5. Economia e Recursos
-                    6. Magia/Tecnologia
-                    7. Religião e Metafísica (Incluindo Absência/Radiância)
-                    8. Ecologia e Geografia (Incluindo Badlands/Warp)
-                    9. Conflitos Atuais (Incluindo os 4 Cavaleiros)
-                    10. Singularidade
+# === ABA 4: SUGESTÕES (NOVA) ===
+with tab_sugestao:
+    st.header("💡 Co-Autor Criativo")
+    st.markdown("A IA vai ler o que você já tem e sugerir **novos conteúdos** para preencher lacunas ou enriquecer cada seção.")
 
-                    FORMATO DE RESPOSTA OBRIGATÓRIO:
-                    Retorne APENAS um JSON válido com esta estrutura:
-                    [
-                        {{
-                            "titulo": "1. Coerência Interna",
-                            "nota": 8,
-                            "analise": "texto...",
-                            "melhorias": "texto..."
-                        }},
-                        ... repita para os 10 itens ...
-                    ]
+    if "sugestoes_ia" not in st.session_state:
+        st.session_state.sugestoes_ia = {}
+
+    if not api_key:
+        st.warning("Insira a API Key para gerar sugestões.")
+    else:
+        if st.button("✨ Gerar Sugestões para TODAS as Seções", type="primary"):
+            with st.spinner("A IA está sonhando com seu mundo... isso pode levar uns 30 segundos."):
+                try:
+                    lore_ativo = {k:v for k,v in lore_data.items()} # Manda tudo, mesmo vazio
+                    
+                    prompt_sugestao = f"""
+                    Atue como um Co-Autor de Fantasia Criativa.
+                    Eu vou te dar o LORE ATUAL do meu mundo (JSON).
+                    
+                    SUA TAREFA:
+                    Para CADA categoria listada abaixo, escreva uma SUGESTÃO curta (2 a 3 frases) de conteúdo novo.
+                    - Se a categoria estiver vazia: Sugira um conceito inicial legal.
+                    - Se já tiver texto: Sugira um plot twist, um segredo ou uma conexão com outra parte do lore.
+                    
+                    LORE ATUAL:
+                    {json.dumps(lore_ativo, ensure_ascii=False)}
+
+                    CATEGORIAS PARA SUGERIR:
+                    {json.dumps(CATEGORIAS, ensure_ascii=False)}
+
+                    FORMATO OBRIGATÓRIO DE RESPOSTA (JSON PURO):
+                    {{
+                        "Facções": "Sugestão aqui...",
+                        "Timeline - Elfos": "Sugestão aqui...",
+                        ... para todas as chaves ...
+                    }}
                     """
                     
                     model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt_auditoria)
-                    dados_auditoria = extrair_json(res.text)
+                    res = model.generate_content(prompt_sugestao)
+                    sugestoes_novas = extrair_json(res.text)
                     
-                    if dados_auditoria:
-                        st.success("Auditoria Concluída!")
-                        for item in dados_auditoria:
-                            with st.expander(f"{item['titulo']} (Nota: {item['nota']}/10)"):
-                                cor_barra = "red"
-                                if item['nota'] >= 7: cor_barra = "green"
-                                elif item['nota'] >= 5: cor_barra = "yellow"
-                                st.progress(item['nota'] / 10)
-                                c1, c2 = st.columns(2)
-                                with c1:
-                                    st.markdown("**🕵️ Análise:**")
-                                    st.info(item['analise'])
-                                with c2:
-                                    st.markdown("**💡 Sugestões:**")
-                                    st.warning(item['melhorias'])
+                    if sugestoes_novas:
+                        st.session_state.sugestoes_ia = sugestoes_novas
+                        st.success("Sugestões geradas! Veja abaixo.")
                     else:
-                        st.error("Erro ao formatar JSON. Texto bruto:")
-                        st.write(res.text)
+                        st.error("A IA não retornou um JSON válido. Tente de novo.")
                 except Exception as e:
-                    st.error(f"Erro na auditoria: {e}")
+                    st.error(f"Erro ao gerar sugestões: {e}")
+
+    # Exibição das Sugestões (Mesmo Layout do Editor)
+    def criar_secao_sugestao(titulo, filtro):
+        st.markdown(f"### {titulo}")
+        cols = st.columns(2)
+        idx = 0
+        for cat in CATEGORIAS:
+            mostrar = False
+            if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
+            elif filtro != "Geral" and filtro in cat: mostrar = True
+            
+            if mostrar:
+                with cols[idx % 2]:
+                    # Pega a sugestão da memória, ou mostra msg padrão
+                    sugestao = st.session_state.sugestoes_ia.get(cat, "Clique no botão acima para gerar sugestões.")
+                    st.text_area(f"💡 Ideia para: {cat}", value=sugestao, height=120, key=f"sug_{cat}", disabled=False)
+                    # Dica visual
+                    if sugestao != "Clique no botão acima para gerar sugestões.":
+                        st.caption("Gostou? Copie e cole na aba 'Editor'.")
+                idx += 1
+        st.divider()
+
+    if st.session_state.sugestoes_ia:
+        criar_secao_sugestao("Sugestões: Gerais", "Geral")
+        criar_secao_sugestao("Sugestões: Timeline", "Timeline")
+        criar_secao_sugestao("Sugestões: Povos", "Povo")
