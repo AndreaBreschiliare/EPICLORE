@@ -12,6 +12,7 @@ st.title("🏰 World Architect: Lore & Auditoria")
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
 if not firebase_admin._apps:
+    # Carrega a chave dos Segredos
     key_dict = json.loads(st.secrets["textkey"])
     cred = credentials.Certificate(key_dict)
     firebase_admin.initialize_app(cred)
@@ -25,6 +26,7 @@ def carregar_lore():
     if doc.exists:
         return doc.to_dict()
     else:
+        # Cria documento vazio se não existir
         dados_iniciais = {cat: "" for cat in CATEGORIAS}
         doc_ref.set(dados_iniciais)
         return dados_iniciais
@@ -33,42 +35,43 @@ def salvar_categoria(categoria, texto):
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc_ref.set({categoria: texto}, merge=True)
 
-# Função para extrair JSON limpo da resposta da IA (caso ela fale antes ou depois)
 def extrair_json(texto):
     try:
-        # Tenta encontrar o bloco json entre ```json e ```
         match = re.search(r"```json\n(.*?)\n```", texto, re.DOTALL)
-        if match:
-            return json.loads(match.group(1))
-        # Se não achar, tenta achar o primeiro { e o último }
+        if match: return json.loads(match.group(1))
         match = re.search(r"\{.*\}", texto, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
+        if match: return json.loads(match.group(0))
         return None
     except:
         return None
 
-# --- 3. LISTA DE CATEGORIAS ---
+# --- 3. LISTA DE CATEGORIAS (ATUALIZADA V7) ---
 CATEGORIAS = [
+    # --- NOVAS ---
+    "Absencia - Caos", 
+    "Radiancia - Ordem", 
+    "Warp", 
+    "Os 4 Cavaleiros",
+    
+    # --- GERAIS ---
     "Facções", "Epic! Aetherius", "Resumo Primeira Era", "Resumo Segunda Era", 
     "Cosmogenese - Resumo", "Origem por Povos (Geral)",
-    "Timeline - Cataclisma", "Timeline - Elfos", "Timeline - Drows", 
+    
+    # --- TIMELINE ---
+    "Timeline - Cataclisma", 
+    "Timeline - Badlands", # Nova
+    "Timeline - Elfos", "Timeline - Drows", 
     "Timeline - Anões", "Timeline - Orcs", "Timeline - Humanos", "Timeline - Pequilhos",
+    
+    # --- POVOS ---
     "Povo - Aiglana", "Povo - Haroloth", "Povo - Leste", "Povo - Bjorska", 
     "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
 ]
 
 CRITERIOS_AUDITORIA = [
-    "1. Coerência Interna",
-    "2. Profundidade Histórica",
-    "3. Cultura e Antropologia",
-    "4. Sistema Político",
-    "5. Economia e Recursos",
-    "6. Magia e Tecnologia",
-    "7. Religião e Metafísica",
-    "8. Ecologia e Geografia",
-    "9. Conflitos Atuais",
-    "10. Singularidade"
+    "1. Coerência Interna", "2. Profundidade Histórica", "3. Cultura e Antropologia",
+    "4. Sistema Político", "5. Economia e Recursos", "6. Magia e Tecnologia",
+    "7. Religião e Metafísica", "8. Ecologia e Geografia", "9. Conflitos Atuais", "10. Singularidade"
 ]
 
 # --- 4. INTERFACE ---
@@ -109,6 +112,7 @@ with tab_editor:
         idx = 0
         for cat in CATEGORIAS:
             mostrar = False
+            # Lógica de exibição inteligente
             if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
             elif filtro != "Geral" and filtro in cat: mostrar = True
             
@@ -123,7 +127,7 @@ with tab_editor:
                 idx += 1
         st.divider()
 
-    criar_secao("📜 Documentos Gerais", "Geral")
+    criar_secao("📜 Documentos Gerais & Cosmologia", "Geral")
     criar_secao("⏳ Timeline", "Timeline")
     criar_secao("🏰 Povos", "Povo")
 
@@ -152,10 +156,10 @@ with tab_chat:
                     st.session_state.messages.append({"role": "assistant", "content": res.text})
                 except Exception as e: st.error(str(e))
 
-# === ABA 3: AUDITORIA (NOVA) ===
+# === ABA 3: AUDITORIA ===
 with tab_aval:
     st.header("⚖️ Auditoria de Worldbuilding")
-    st.markdown("A IA vai ler todo o seu mundo e avaliar os 10 pilares fundamentais de uma Lore Medieval.")
+    st.markdown("A IA vai ler todo o seu mundo e avaliar os 10 pilares fundamentais.")
     
     if not api_key:
         st.warning("Você precisa da API Key para rodar a auditoria.")
@@ -163,67 +167,54 @@ with tab_aval:
         if st.button("🔍 Rodar Auditoria Completa (Pode levar 1 minuto)", type="primary"):
             with st.spinner("O Auditor está lendo seus pergaminhos e julgando suas escolhas..."):
                 try:
-                    # 1. Prepara o Lore
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                     lore_txt = json.dumps(lore_ativo, ensure_ascii=False)
                     
-                    # 2. O Prompt Gigante de Avaliação
+                    # Prompt atualizado para considerar as novas categorias
                     prompt_auditoria = f"""
-                    Atue como um Crítico Literário Sênior especialista em Fantasia Medieval (estilo Tolkien/George Martin).
+                    Atue como um Crítico Literário Sênior especialista em Fantasia Medieval.
                     Analise o seguinte LORE MUNDIAL:
                     ---
                     {lore_txt}
                     ---
 
-                    Sua tarefa é avaliar o mundo com base em 10 critérios.
-                    Para cada critério, dê uma nota (0 a 10), um resumo da análise e sugestões de melhoria.
-                    
-                    OS 10 CRITÉRIOS SÃO:
-                    1. Coerência Interna (Regras, Magia, Contradições)
-                    2. Profundidade Histórica (Eras, Ruínas, Passado)
-                    3. Cultura e Antropologia (Idiomas, Rituais, Vestimentas)
-                    4. Sistema Político (Alianças, Guerras, Tensões)
-                    5. Economia e Recursos (Comércio, Moeda, Sustento)
-                    6. Magia/Tecnologia (Limites, Custos, Origem)
-                    7. Religião e Metafísica (Deuses, Mitos, Vida após morte)
-                    8. Ecologia e Geografia (Biomas, Clima, Mapas)
-                    9. Conflitos Atuais (Tensões imediatas, ameaças)
-                    10. Singularidade (O que torna este mundo único?)
+                    Avalie com base nestes 10 critérios:
+                    1. Coerência Interna
+                    2. Profundidade Histórica
+                    3. Cultura e Antropologia
+                    4. Sistema Político
+                    5. Economia e Recursos
+                    6. Magia/Tecnologia
+                    7. Religião e Metafísica (Incluindo Absência/Radiância)
+                    8. Ecologia e Geografia (Incluindo Badlands/Warp)
+                    9. Conflitos Atuais (Incluindo os 4 Cavaleiros)
+                    10. Singularidade
 
                     FORMATO DE RESPOSTA OBRIGATÓRIO:
-                    Retorne APENAS um JSON válido com esta estrutura exata para cada um dos 10 itens:
+                    Retorne APENAS um JSON válido com esta estrutura:
                     [
                         {{
                             "titulo": "1. Coerência Interna",
                             "nota": 8,
-                            "analise": "O texto explica bem...",
-                            "melhorias": "Faltou explicar..."
+                            "analise": "texto...",
+                            "melhorias": "texto..."
                         }},
                         ... repita para os 10 itens ...
                     ]
                     """
                     
-                    # 3. Chama a IA
                     model = genai.GenerativeModel(modelo_escolhido)
-                    # Força resposta JSON se o modelo suportar (Flash suporta melhor)
                     res = model.generate_content(prompt_auditoria)
-                    
-                    # 4. Processa o JSON
                     dados_auditoria = extrair_json(res.text)
                     
                     if dados_auditoria:
                         st.success("Auditoria Concluída!")
-                        
-                        # Loop para criar os cards
                         for item in dados_auditoria:
                             with st.expander(f"{item['titulo']} (Nota: {item['nota']}/10)"):
-                                # Barra de Progresso colorida
                                 cor_barra = "red"
                                 if item['nota'] >= 7: cor_barra = "green"
                                 elif item['nota'] >= 5: cor_barra = "yellow"
-                                
                                 st.progress(item['nota'] / 10)
-                                
                                 c1, c2 = st.columns(2)
                                 with c1:
                                     st.markdown("**🕵️ Análise:**")
@@ -232,8 +223,7 @@ with tab_aval:
                                     st.markdown("**💡 Sugestões:**")
                                     st.warning(item['melhorias'])
                     else:
-                        st.error("A IA retornou um texto, mas não consegui formatar em caixas. Veja o texto bruto abaixo:")
+                        st.error("Erro ao formatar JSON. Texto bruto:")
                         st.write(res.text)
-
                 except Exception as e:
                     st.error(f"Erro na auditoria: {e}")
