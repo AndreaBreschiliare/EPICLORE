@@ -11,7 +11,122 @@ import io
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
-st.title("🏰 World Architect: Lore & Co-Autor")
+
+# --- 🎨 ESTILO VISUAL (CSS MÁGICO) ---
+def aplicar_estilo_visual():
+    st.markdown("""
+    <style>
+        /* Importa Fontes do Google: Cinzel (Títulos) e Lato (Texto) */
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
+
+        /* --- FUNDO E TIPOGRAFIA GERAL --- */
+        .stApp {
+            background-color: #0e1117;
+            background-image: radial-gradient(circle at 50% 0, #1c2331, #0e1117);
+            color: #d4d4d4;
+            font-family: 'Lato', sans-serif;
+        }
+
+        /* --- TÍTULOS DOURADOS --- */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Cinzel', serif;
+            color: #e6c200 !important;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            font-weight: 700;
+        }
+        
+        /* Título Principal mais impactante */
+        h1 {
+            text-align: center;
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e6c200;
+            padding-bottom: 20px;
+        }
+
+        /* --- SIDEBAR (LOMBADA DO LIVRO) --- */
+        [data-testid="stSidebar"] {
+            background-color: #11141a;
+            border-right: 1px solid #30363d;
+        }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+            color: #a0a0a0 !important; /* Títulos da sidebar mais discretos */
+        }
+
+        /* --- CAIXAS DE TEXTO (PERGAMINHO ESCURO) --- */
+        .stTextArea textarea {
+            background-color: #161b22 !important;
+            color: #e6e6e6 !important;
+            border: 1px solid #30363d !important;
+            font-family: 'Lato', sans-serif;
+            border-radius: 8px;
+        }
+        .stTextArea textarea:focus {
+            border-color: #e6c200 !important;
+            box-shadow: 0 0 8px rgba(230, 194, 0, 0.3);
+        }
+        
+        /* --- BOTÕES MÁGICOS --- */
+        .stButton > button {
+            background: linear-gradient(180deg, #2e2e2e 0%, #1a1a1a 100%);
+            color: #e6c200 !important;
+            border: 1px solid #e6c200 !important;
+            font-family: 'Cinzel', serif;
+            font-weight: bold;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .stButton > button:hover {
+            background: linear-gradient(180deg, #e6c200 0%, #b39700 100%);
+            color: #0e1117 !important;
+            box-shadow: 0 0 15px rgba(230, 194, 0, 0.6);
+            transform: translateY(-2px);
+            border-color: #fff !important;
+        }
+
+        /* --- ABAS (TABS) --- */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+            border-bottom: 1px solid #30363d;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background-color: transparent;
+            border-radius: 4px 4px 0 0;
+            color: #8b949e;
+            font-family: 'Cinzel', serif;
+            font-size: 1.1rem;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #161b22;
+            color: #e6c200;
+            border: 1px solid #e6c200;
+            border-bottom: none;
+        }
+
+        /* --- EXPANDERS --- */
+        .streamlit-expanderHeader {
+            background-color: #161b22;
+            color: #e6c200 !important;
+            border: 1px solid #30363d;
+            font-family: 'Cinzel', serif;
+        }
+        
+        /* --- CAIXAS DE MENSAGEM (ALERTS) --- */
+        [data-testid="stNotification"] {
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+# Aplica o estilo imediatamente
+aplicar_estilo_visual()
+
+st.title("🏰 World Architect")
+st.markdown("<div style='text-align: center; color: #8b949e; margin-top: -20px; margin-bottom: 30px;'>O Grimório Vivo de Lore & Criação</div>", unsafe_allow_html=True)
 
 # --- INICIALIZAÇÃO SEGURA DE ESTADO ---
 if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
@@ -20,7 +135,6 @@ if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = ""
 if "auditoria_dados" not in st.session_state: st.session_state.auditoria_dados = []
 if "messages" not in st.session_state: st.session_state.messages = []
 if "glossario" not in st.session_state: st.session_state.glossario = {}
-# NOVO: Estado para o gráfico
 if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = ""
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
@@ -79,13 +193,10 @@ def extrair_json(texto):
     except:
         return None
 
-# NOVO: Extrair código DOT do Graphviz
 def extrair_dot(texto):
     try:
-        # Procura bloco de código graphviz ou dot
         match = re.search(r"```(?:dot|graphviz)\n(.*?)\n```", texto, re.DOTALL)
         if match: return match.group(1)
-        # Se não achar bloco, tenta achar o começo e fim do digraph
         if "digraph" in texto:
             inicio = texto.find("digraph")
             fim = texto.rfind("}") + 1
@@ -126,12 +237,11 @@ if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = cache
 if "auditoria_dados" not in st.session_state: st.session_state.auditoria_dados = caches_salvos.get("auditoria", [])
 if "messages" not in st.session_state: st.session_state.messages = caches_salvos.get("chat_history", [])
 if "glossario" not in st.session_state: st.session_state.glossario = caches_salvos.get("glossario", {})
-# NOVO: Cache do gráfico
 if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = caches_salvos.get("arvore_dot", "")
 
 # --- 5. INTERFACE ---
-st.sidebar.header("Configuração IA")
-api_key = st.sidebar.text_input("Sua Google API Key (Gemini)", type="password")
+st.sidebar.header("⚙️ Configuração Mágica")
+api_key = st.sidebar.text_input("Chave do Oráculo (API Key)", type="password")
 
 modelo_escolhido = "gemini-pro" 
 
@@ -145,7 +255,7 @@ if api_key:
                     lista_modelos.append(m.name)
         if lista_modelos:
             lista_modelos.sort(key=lambda x: "flash" not in x)
-            modelo_escolhido = st.sidebar.selectbox("Modelo IA:", lista_modelos, index=0)
+            modelo_escolhido = st.sidebar.selectbox("Inteligência:", lista_modelos, index=0)
     except Exception as e:
         st.sidebar.error(f"Erro IA: {e}")
 
@@ -156,14 +266,13 @@ except Exception as e:
     st.stop()
 
 # --- ABAS ---
-# Adicionado "🌳 Genealogia"
 tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_mapa = st.tabs([
     "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", "📚 Glossário", "🌳 Genealogia", "🗺️ Mapa"
 ])
 
 # === ABA 1: EDITOR ===
 with tab_editor:
-    st.info("As alterações são salvas automaticamente na nuvem.")
+    st.info("💾 As escrituras são salvas automaticamente nos arquivos etéreos (Nuvem).")
     def criar_secao_editor(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
@@ -189,17 +298,17 @@ with tab_editor:
 # === ABA 2: CHAT ===
 with tab_chat:
     c1, c2 = st.columns([4, 1])
-    c1.header("Oráculo da Lore")
-    if c2.button("🗑️ Limpar"):
+    c1.header("🔮 Oráculo da Lore")
+    if c2.button("🗑️ Esquecer Tudo"):
         st.session_state.messages = []
         salvar_cache_analise("chat_history", [])
         st.rerun()
 
-    if not api_key: st.warning("Insira a API Key.")
+    if not api_key: st.warning("O Oráculo precisa da Chave (API Key).")
     else:
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]): st.markdown(msg["content"])
-        if prompt := st.chat_input("Pergunte ao Lore..."):
+        if prompt := st.chat_input("Consulte os espíritos..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"): st.markdown(prompt)
             lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
@@ -215,12 +324,12 @@ with tab_chat:
 
 # === ABA 3: AUDITORIA ===
 with tab_aval:
-    st.header("⚖️ Auditoria Implacável")
+    st.header("⚖️ O Julgamento Final")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.auditoria_dados: st.success("📂 Carregado da memória.")
-        if st.button("🔄 Recalcular Auditoria"):
-            with st.spinner("Auditando..."):
+        if st.session_state.auditoria_dados: st.success("📂 Relatório recuperado dos arquivos.")
+        if st.button("🔄 Convocar Novo Julgamento"):
+            with st.spinner("O Juiz está analisando os autos..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                     prompt_auditoria = f"""
@@ -246,11 +355,11 @@ with tab_aval:
 
 # === ABA 4: SUGESTÕES ===
 with tab_sugestao:
-    st.header("💡 Co-Autor Criativo")
+    st.header("💡 A Musa Inspiradora")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.sugestoes_ia: st.success("📂 Carregado da memória.")
-        if st.button("🔄 Gerar Novas Ideias"):
+        if st.session_state.sugestoes_ia: st.success("📂 Inspirações recuperadas.")
+        if st.button("🔄 Pedir Novas Ideias"):
             with st.spinner("Sonhando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items()}
@@ -292,12 +401,12 @@ with tab_sugestao:
 
 # === ABA 5: INCOERÊNCIAS ===
 with tab_erros:
-    st.header("⚡ Detector de Incoerências")
+    st.header("⚡ O Inquisidor Lógico")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.erros_ia: st.success("📂 Carregado da memória.")
-        if st.button("🔄 Rastrear Contradições"):
-            with st.spinner("Inquisidor trabalhando..."):
+        if st.session_state.erros_ia: st.success("📂 Inquérito recuperado.")
+        if st.button("🔄 Iniciar Caça às Bruxas (Contradições)"):
+            with st.spinner("O Inquisidor afia suas lâminas..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                     prompt_erros = f"""
@@ -345,13 +454,13 @@ with tab_erros:
 
 # === ABA 6: GLOSSÁRIO ===
 with tab_glossario:
-    st.header("📚 Glossário Vivo")
+    st.header("📚 O Grande Arquivo")
     if not api_key: st.warning("Insira a API Key.")
     else:
         c_btn, c_info = st.columns([1, 3])
         with c_btn:
-            if st.button("🔄 Atualizar Glossário"):
-                with st.spinner("Lendo..."):
+            if st.button("🔄 Reescrever Dicionário"):
+                with st.spinner("Catalogando..."):
                     try:
                         lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                         prompt = f"""
@@ -371,16 +480,16 @@ with tab_glossario:
                     except Exception as e: st.error(f"Erro: {e}")
         
         with c_info:
-            if st.session_state.glossario: st.info(f"Termos: {len(st.session_state.glossario)}")
+            if st.session_state.glossario: st.info(f"Verbetes Catalogados: {len(st.session_state.glossario)}")
 
     st.divider()
     c_leitor, c_termos = st.columns([2, 1])
     with c_leitor:
-        txt_escolhido = st.selectbox("Ler Texto:", CATEGORIAS)
+        txt_escolhido = st.selectbox("Ler Pergaminho:", CATEGORIAS)
         conteudo = lore_data.get(txt_escolhido, "")
         st.text_area("Leitura:", value=conteudo, height=600, disabled=True)
     with c_termos:
-        st.subheader("🔍 Termos")
+        st.subheader("🔍 Notas de Rodapé")
         if not st.session_state.glossario: st.warning("Gere o glossário!")
         elif not conteudo: st.write("...")
         else:
@@ -388,79 +497,53 @@ with tab_glossario:
             if encontrados:
                 for t, d in encontrados:
                     with st.expander(f"🔹 {t}"): st.write(d)
-            else: st.info("Nenhum termo encontrado.")
+            else: st.info("Nenhum termo mágico encontrado.")
 
-# === ABA 7: GENEALOGIA (NOVA) ===
+# === ABA 7: GENEALOGIA ===
 with tab_genealogia:
-    st.header("🌳 Árvore Genealógica & Conexões")
-    st.markdown("A IA desenha um mapa visual das Casas, Famílias e Alianças.")
-
+    st.header("🌳 Linhagens e Alianças")
     if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.arvore_dot:
-            st.success("📂 Gráfico carregado da memória.")
-            
-        if st.button("🔄 Gerar Gráfico de Conexões"):
-            with st.spinner("Desenhando a árvore da vida..."):
+        if st.session_state.arvore_dot: st.success("📂 Diagrama recuperado.")
+        if st.button("🔄 Desenhar Árvore"):
+            with st.spinner("Traçando linhagens..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    
                     prompt_genealogia = f"""
-                    Atue como um Genealogista Real.
-                    TAREFA: Leia o lore e identifique famílias, casas reais e alianças.
-                    Crie um código GRAPHVIZ (DOT) válido.
-                    
-                    REGRAS VISUAIS:
-                    - Use 'digraph G {{ ... }}'
-                    - Use 'rankdir=LR' (Esquerda para Direita).
-                    - Agrupe membros da mesma casa em 'subgraph cluster_NomeCasa {{ ... }}'.
-                    - Use cores diferentes para cada casa (style=filled, color=...).
-                    - Use setas (->) para Pais -> Filhos.
-                    - Use linhas tracejadas [style=dashed, dir=none] para Casamentos/Alianças.
-                    - Apenas nomes nos nós.
-                    
+                    Atue como Genealogista. GRAPHVIZ DOT.
+                    REGRAS: digraph G {{ rankdir=LR; ... }}
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    
-                    RESPONDA APENAS COM O CÓDIGO DOT ENTRE CRASES (```dot ... ```).
+                    RESPONDA APENAS CODIGO DOT.
                     """
-                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_genealogia)
                     dot_code = extrair_dot(res.text)
-                    
                     if dot_code:
                         st.session_state.arvore_dot = dot_code
                         salvar_cache_analise("arvore_dot", dot_code)
-                        st.success("Gráfico gerado!")
-                    else:
-                        st.error("A IA não gerou um código gráfico válido. Tente de novo.")
-                        st.write(res.text) # Debug
-                        
-                except Exception as e:
-                    st.error(f"Erro ao gerar: {e}")
+                        st.success("Feito!")
+                        st.rerun()
+                    else: st.error("Erro no DOT.")
+                except Exception as e: st.error(f"Erro: {e}")
 
-    # Renderiza o Gráfico
     if st.session_state.arvore_dot:
         try:
             st.graphviz_chart(st.session_state.arvore_dot)
-            with st.expander("Ver Código DOT (Para editar em outro lugar)"):
-                st.code(st.session_state.arvore_dot, language="dot")
-        except Exception as e:
-            st.error(f"Erro ao desenhar gráfico (Código inválido): {e}")
+        except Exception as e: st.error(f"Erro visual: {e}")
 
 # === ABA 8: MAPA ===
 with tab_mapa:
-    st.header("🗺️ Cartografia Oficial")
+    st.header("🗺️ Cartografia")
     mapa_b64 = carregar_mapa()
-    if mapa_b64: st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi", use_container_width=True)
-    else: st.info("Sem mapa.")
+    if mapa_b64: st.image(base64.b64decode(mapa_b64), caption="Mundo Conhecido", use_container_width=True)
+    else: st.info("Território inexplorado (Sem mapa).")
     st.markdown("---")
-    arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
+    arquivo_mapa = st.file_uploader("Novo Mapa", type=["jpg", "jpeg", "png", "webp"])
     if arquivo_mapa:
-        if st.button("📤 Enviar para a Nuvem"):
+        if st.button("📤 Salvar no Arquivo Real"):
             try:
                 b64_string = comprimir_imagem(arquivo_mapa)
                 salvar_mapa_b64(b64_string)
-                st.success("Salvo!")
+                st.success("Mapeado!")
                 st.rerun()
             except Exception as e: st.error(str(e))
