@@ -6,6 +6,8 @@ import google.generativeai as genai
 import json
 import re
 import base64
+from PIL import Image
+import io
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
@@ -59,17 +61,37 @@ def extrair_json(texto):
     except:
         return None
 
+# --- FUNÇÃO DE COMPRESSÃO DE IMAGEM ---
+def comprimir_imagem(arquivo_upload):
+    # Abre a imagem com a biblioteca Pillow
+    image = Image.open(arquivo_upload)
+    
+    # Converte para RGB (caso seja PNG com transparência ou WebP)
+    if image.mode in ("RGBA", "P"):
+        image = image.convert("RGB")
+    
+    # Redimensiona se for muito grande (max largura 1600px)
+    max_width = 1600
+    if image.width > max_width:
+        ratio = max_width / float(image.width)
+        new_height = int((float(image.height) * float(ratio)))
+        image = image.resize((max_width, new_height), Image.Resampling.LANCZOS)
+    
+    # Salva num buffer de memória em formato JPEG otimizado
+    buffer = io.BytesIO()
+    # Qualidade 85 é ótima e reduz muito o tamanho
+    image.save(buffer, format="JPEG", quality=85, optimize=True)
+    
+    # Converte para Base64
+    return base64.b64encode(buffer.getvalue()).decode('utf-8')
+
 # --- 3. LISTA DE CATEGORIAS ---
 CATEGORIAS = [
-    # --- NOVAS ---
     "Absencia - Caos", "Radiancia - Ordem", "Warp", "Os 4 Cavaleiros",
-    # --- GERAIS ---
     "Facções", "Epic! Aetherius", "Resumo Primeira Era", "Resumo Segunda Era", 
     "Cosmogenese - Resumo", "Origem por Povos (Geral)",
-    # --- TIMELINE ---
     "Timeline - Cataclisma", "Timeline - Badlands", "Timeline - Elfos", "Timeline - Drows", 
     "Timeline - Anões", "Timeline - Orcs", "Timeline - Humanos", "Timeline - Pequilhos",
-    # --- POVOS ---
     "Povo - Aiglana", "Povo - Haroloth", "Povo - Leste", "Povo - Bjorska", 
     "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
 ]
@@ -126,7 +148,6 @@ with tab_editor:
                         st.rerun()
                 idx += 1
         st.divider()
-
     criar_secao_editor("📜 Documentos Gerais & Cosmologia", "Geral")
     criar_secao_editor("⏳ Timeline", "Timeline")
     criar_secao_editor("🏰 Povos", "Povo")
@@ -154,18 +175,14 @@ with tab_chat:
 
 # === ABA 3: AUDITORIA ===
 with tab_aval:
-    st.header("⚖️ Auditoria de Worldbuilding")
+    st.header("⚖️ Auditoria")
     if not api_key: st.warning("Insira a API Key.")
     else:
         if st.button("🔍 Rodar Auditoria"):
             with st.spinner("Auditando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    prompt_auditoria = f"""
-                    Atue como Crítico Literário. Analise este LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    Avalie os 10 pilares (Coerência, História, Cultura, Política, Economia, Magia, Religião, Geografia, Conflitos, Singularidade).
-                    RETORNE JSON: [{{ "titulo": "...", "nota": 8, "analise": "...", "melhorias": "..." }}]
-                    """
+                    prompt_auditoria = f"""Atue como Crítico Literário. Analise: {json.dumps(lore_ativo, ensure_ascii=False)}. Avalie os 10 pilares. JSON: [{{ "titulo": "...", "nota": 8, "analise": "...", "melhorias": "..." }}]"""
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_auditoria)
                     dados = extrair_json(res.text)
@@ -185,24 +202,19 @@ with tab_sugestao:
     else:
         if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
         if st.button("✨ Gerar Sugestões", type="primary"):
-            with st.spinner("Sonhando com seu mundo..."):
+            with st.spinner("Sonhando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items()}
-                    prompt_sugestao = f"""
-                    Atue como Co-Autor. Para CADA categoria, escreva uma SUGESTÃO curta.
-                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
-                    JSON: {{ "Categoria": "Sugestão...", ... }}
-                    """
+                    prompt = f"""Atue como Co-Autor. JSON de sugestões curtas para: {json.dumps(CATEGORIAS, ensure_ascii=False)}. LORE: {json.dumps(lore_ativo, ensure_ascii=False)}"""
                     model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt_sugestao)
-                    sugestoes_novas = extrair_json(res.text)
-                    if sugestoes_novas:
-                        st.session_state.sugestoes_ia = sugestoes_novas
-                        st.success("Sugestões geradas!")
-                    else: st.error("Erro no JSON.")
+                    res = model.generate_content(prompt)
+                    dados = extrair_json(res.text)
+                    if dados:
+                        st.session_state.sugestoes_ia = dados
+                        st.success("Gerado!")
+                    else: st.error("Erro JSON")
                 except Exception as e: st.error(f"Erro: {e}")
-
+    
     def criar_secao_sugestao(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
@@ -213,15 +225,14 @@ with tab_sugestao:
             elif filtro != "Geral" and filtro in cat: mostrar = True
             if mostrar:
                 with cols[idx % 2]:
-                    sugestao = st.session_state.sugestoes_ia.get(cat, "...")
-                    st.text_area(f"💡 {cat}", value=sugestao, height=250, key=f"sug_{cat}", disabled=True)
+                    sug = st.session_state.sugestoes_ia.get(cat, "...")
+                    st.text_area(f"💡 {cat}", value=sug, height=250, disabled=True)
                 idx += 1
         st.divider()
-
     if st.session_state.sugestoes_ia:
-        criar_secao_sugestao("Sugestões: Gerais", "Geral")
-        criar_secao_sugestao("Sugestões: Timeline", "Timeline")
-        criar_secao_sugestao("Sugestões: Povos", "Povo")
+        criar_secao_sugestao("Geral", "Geral")
+        criar_secao_sugestao("Timeline", "Timeline")
+        criar_secao_sugestao("Povos", "Povo")
 
 # === ABA 5: INCOERÊNCIAS ===
 with tab_erros:
@@ -233,21 +244,16 @@ with tab_erros:
             with st.spinner("Inquisidor trabalhando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    prompt_erros = f"""
-                    Auditor Lógico. Cruce dados e ache contradições.
-                    SAÍDA JSON: {{ "Categoria": "• 🔴 ERRO: ...", ... }}
-                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
-                    """
+                    prompt = f"""Auditor Lógico. Ache contradições. JSON: {{ "Categoria": "• 🔴 ERRO: ...", ... }}. LORE: {json.dumps(lore_ativo, ensure_ascii=False)}"""
                     model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt_erros)
-                    erros_detectados = extrair_json(res.text)
-                    if erros_detectados:
-                        st.session_state.erros_ia = erros_detectados
-                        st.success("Varredura completa!")
+                    res = model.generate_content(prompt)
+                    dados = extrair_json(res.text)
+                    if dados:
+                        st.session_state.erros_ia = dados
+                        st.success("Feito!")
                     else: st.write(res.text)
-                except Exception as e: st.error(f"Erro: {e}")
-
+                except Exception as e: st.error(str(e))
+    
     def criar_secao_erros(titulo, filtro):
         st.markdown(f"### {titulo}")
         cols = st.columns(2)
@@ -258,44 +264,39 @@ with tab_erros:
             elif filtro != "Geral" and filtro in cat: mostrar = True
             if mostrar:
                 with cols[idx % 2]:
-                    val_atual = lore_data.get(cat, "")
-                    st.text_area(f"📄 {cat}", value=val_atual, height=150, disabled=True, key=f"view_{cat}")
-                    erro_msg = st.session_state.erros_ia.get(cat, None)
-                    if erro_msg: st.error(f"🚨 **PROBLEMAS:**\n\n{erro_msg}")
+                    val = lore_data.get(cat, "")
+                    st.text_area(f"📄 {cat}", value=val, height=150, disabled=True)
+                    erro = st.session_state.erros_ia.get(cat, None)
+                    if erro: st.error(f"🚨 {erro}")
                     else: st.success("✅ OK")
                 idx += 1
         st.divider()
-
     if st.session_state.erros_ia:
-        criar_secao_erros("Análise: Gerais", "Geral")
-        criar_secao_erros("Análise: Timeline", "Timeline")
-        criar_secao_erros("Análise: Povos", "Povo")
+        criar_secao_erros("Geral", "Geral")
+        criar_secao_erros("Timeline", "Timeline")
+        criar_secao_erros("Povos", "Povo")
 
-# === ABA 6: MAPA (Com suporte a WebP) ===
+# === ABA 6: MAPA (COM COMPRESSOR) ===
 with tab_mapa:
     st.header("🗺️ Cartografia Oficial")
-    
     mapa_b64 = carregar_mapa()
-    
     if mapa_b64:
-        st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi Atual", use_container_width=True)
-    else:
-        st.info("Nenhum mapa arquivado.")
+        st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi", use_container_width=True)
+    else: st.info("Sem mapa.")
 
     st.markdown("---")
     st.subheader("Atualizar Mapa")
-    st.warning("⚠️ Use imagens leves (menos de 1MB). Suporta: JPG, PNG, WEBP.")
+    st.warning("⚠️ O sistema comprimirá automaticamente para caber no banco.")
     
-    # MUDANÇA AQUI: Adicionado 'webp' na lista
-    arquivo_mapa = st.file_uploader("Carregar nova imagem", type=["jpg", "jpeg", "png", "webp"])
+    arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
     
     if arquivo_mapa:
         if st.button("📤 Enviar para a Nuvem"):
             try:
-                bytes_data = arquivo_mapa.getvalue()
-                b64_string = base64.b64encode(bytes_data).decode('utf-8')
+                # Compressa antes de enviar
+                b64_string = comprimir_imagem(arquivo_mapa)
                 salvar_mapa_b64(b64_string)
-                st.success("Mapa atualizado! Recarregando...")
+                st.success("Mapa comprimido e salvo com sucesso! Recarregando...")
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao salvar mapa: {e}")
