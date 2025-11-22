@@ -12,7 +12,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- CONFIGURAÇÃO DA PÁGINA (LAYOUT WIDE PARA MELHOR UX) ---
+# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
 
 # --- 🎨 ESTILO VISUAL (CSS MÁGICO + MOBILE) ---
@@ -21,7 +21,6 @@ def aplicar_estilo_visual():
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
         
-        /* --- GERAL --- */
         .stApp {
             background-color: #0e1117;
             background-image: radial-gradient(circle at 50% 0, #1c2331, #0e1117);
@@ -35,25 +34,16 @@ def aplicar_estilo_visual():
             font-weight: 700;
         }
         
-        /* --- MOBILE OPTIMIZATION --- */
         @media (max-width: 768px) {
-            .stColumns {
-                flex-direction: column;
-            }
-            /* Aumenta botões no celular */
-            .stButton > button {
-                width: 100%;
-                margin-top: 10px;
-            }
+            .stColumns { flex-direction: column; }
+            .stButton > button { width: 100%; margin-top: 10px; }
         }
 
-        /* --- BARRA LATERAL --- */
         [data-testid="stSidebar"] {
             background-color: #11141a;
             border-right: 1px solid #30363d;
         }
         
-        /* --- CAIXAS DE TEXTO --- */
         .stTextArea textarea {
             background-color: #161b22 !important;
             color: #e6e6e6 !important;
@@ -66,7 +56,6 @@ def aplicar_estilo_visual():
             box-shadow: 0 0 8px rgba(230, 194, 0, 0.3);
         }
         
-        /* --- BOTÕES --- */
         .stButton > button {
             background: linear-gradient(180deg, #2e2e2e 0%, #1a1a1a 100%);
             color: #e6c200 !important;
@@ -86,13 +75,17 @@ def aplicar_estilo_visual():
             border-color: #fff !important;
         }
         
-        /* --- CUSTOM TOAST (FEEDBACK) --- */
         div[data-testid="stToast"] {
             background-color: #161b22;
             border: 1px solid #e6c200;
             color: #e6c200;
             font-family: 'Cinzel', serif;
         }
+        
+        .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid #30363d; }
+        .stTabs [data-baseweb="tab"] { background-color: transparent; border-radius: 4px 4px 0 0; color: #8b949e; font-family: 'Cinzel', serif; }
+        .stTabs [aria-selected="true"] { background-color: #161b22; color: #e6c200; border: 1px solid #e6c200; border-bottom: none; }
+        .streamlit-expanderHeader { background-color: #161b22; color: #e6c200 !important; border: 1px solid #30363d; font-family: 'Cinzel', serif; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -222,7 +215,7 @@ except Exception as e:
     st.error(f"Erro Banco: {e}")
     st.stop()
 
-# --- 5. SIDEBAR COM FERRAMENTAS DE UX (NOVIDADE) ---
+# --- 5. SIDEBAR LIMPA ---
 with st.sidebar:
     st.title("🏰 World Architect")
     st.header("⚙️ Configuração")
@@ -240,7 +233,7 @@ with st.sidebar:
 
     st.divider()
     
-    # --- UX 1: BUSCA GLOBAL ---
+    # --- BUSCA GLOBAL (ÚTIL) ---
     st.subheader("🔍 Busca Global")
     termo_busca = st.text_input("Procurar no Lore:", placeholder="Ex: Elfos")
     if termo_busca:
@@ -255,24 +248,6 @@ with st.sidebar:
         else:
             st.warning("Não encontrado.")
 
-    st.divider()
-
-    # --- UX 2: GLOSSÁRIO RÁPIDO (TOOLTIP MANUAL) ---
-    st.subheader("📖 Dicionário Rápido")
-    termo_glossario = st.text_input("Definição de:", placeholder="Digite um termo...")
-    if termo_glossario and st.session_state.glossario:
-        # Busca aproximada
-        encontrado = False
-        for k, v in st.session_state.glossario.items():
-            if termo_glossario.lower() in k.lower():
-                st.info(f"**{k}:** {v}")
-                encontrado = True
-                break
-        if not encontrado:
-            st.caption("Termo não consta no glossário.")
-    elif termo_glossario and not st.session_state.glossario:
-        st.caption("Glossário vazio. Gere na aba 'Glossário'.")
-
 # --- ABAS ---
 abas = [
     "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
@@ -280,10 +255,8 @@ abas = [
 ]
 tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_conexoes, tab_timeline, tab_dashboard, tab_mapa = st.tabs(abas)
 
-# === ABA 1: EDITOR (COM UX DE NAVEGAÇÃO) ===
+# === ABA 1: EDITOR (COM ÍNDICE) ===
 with tab_editor:
-    # --- UX 3: ÍNDICE DE NAVEGAÇÃO (TOC) ---
-    # Em vez de mostrar tudo de uma vez, permite filtrar
     col_titulo, col_filtro = st.columns([3, 1])
     with col_titulo:
         st.info("As escrituras são salvas automaticamente nos arquivos etéreos (Nuvem).")
@@ -313,13 +286,10 @@ with tab_editor:
                     val_atual = lore_data.get(cat, "")
                     novo_val = st.text_area(cat, value=val_atual, height=500, key=f"txt_{cat}")
                     
-                    # --- UX 4: FEEDBACK VISUAL (TOAST) ---
+                    # Feedback Visual (Toast)
                     if st.button(f"💾 Salvar {cat}", key=f"btn_{cat}"):
                         salvar_categoria(cat, novo_val)
-                        # Notificação flutuante chique
                         st.toast(f"Alterações em '{cat}' salvas com sucesso!", icon="✅")
-                        # Rerun suave para atualizar cache local se precisar
-                        # st.rerun() (Opcional, o toast já dá o feedback)
                 idx += 1
         st.divider()
 
@@ -623,7 +593,7 @@ with tab_conexoes:
             st.graphviz_chart(st.session_state.grafo_dot)
         except Exception as e: st.error(f"Erro visual: {e}")
 
-# === ABA 9: TIMELINE VISUAL ===
+# === ABA 9: TIMELINE VISUAL (LIMPA E INTERATIVA) ===
 with tab_timeline:
     st.header("📉 A Marcha do Tempo")
     if not api_key: st.warning("Insira a API Key.")
@@ -653,10 +623,18 @@ with tab_timeline:
         try:
             df = pd.DataFrame(st.session_state.timeline_dados)
             if not df.empty:
+                # AQUI ESTÁ A MUDANÇA PRINCIPAL PARA LIMPAR O GRÁFICO
                 fig = px.scatter(
-                    df, x="ano_numerico", y="grupo", hover_name="data_exibicao", 
-                    hover_data={"ano_numerico": False, "grupo": False, "evento": True}, 
-                    color="grupo", title="Linha do Tempo (Passe o mouse)", height=600, size_max=15
+                    df, 
+                    x="ano_numerico", 
+                    y="grupo", 
+                    # REMOVIDO O text="evento" QUE SUJAVA A TELA
+                    hover_name="data_exibicao", # Título do Tooltip
+                    hover_data={"ano_numerico": False, "grupo": False, "evento": True}, # Mostra o texto só no mouse
+                    color="grupo", 
+                    title="Linha do Tempo (Passe o mouse para ler)", 
+                    height=600,
+                    size_max=15 # Bolinhas maiores
                 )
                 fig.update_traces(marker=dict(size=14, line=dict(width=2, color='#e6c200')))
                 fig.update_layout(
@@ -682,20 +660,16 @@ with tab_dashboard:
                     prompt_dash = f"""
                     Atue como um Estrategista Militar e Político.
                     Leia o lore abaixo e identifique as 6 a 10 maiores FACÇÕES ou POVOS (ex: Elfos, Orcs, Imperio X).
-                    
                     Para cada um, atribua uma nota de 0 a 100 nestes quesitos:
-                    - Militar (Força bruta, exércitos)
-                    - Magia (Poder arcano/divino)
-                    - Economia (Riqueza, recursos)
-                    - Influencia (Poder político, aliados)
-                    
+                    - Militar
+                    - Magia
+                    - Economia
+                    - Influencia
                     SAÍDA JSON OBRIGATÓRIA:
                     [
                         {{ "Entidade": "Império Aiglano", "Militar": 90, "Magia": 20, "Economia": 80, "Influencia": 70 }},
-                        {{ "Entidade": "Tribos Orcs", "Militar": 70, "Magia": 40, "Economia": 10, "Influencia": 5 }},
                         ...
                     ]
-                    
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     """
                     model = genai.GenerativeModel(modelo_escolhido)
