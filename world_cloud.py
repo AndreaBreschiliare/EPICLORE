@@ -8,6 +8,8 @@ import re
 import base64
 from PIL import Image
 import io
+import pandas as pd
+import plotly.express as px
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
@@ -16,26 +18,19 @@ st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="�
 def aplicar_estilo_visual():
     st.markdown("""
     <style>
-        /* Importa Fontes do Google: Cinzel (Títulos) e Lato (Texto) */
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
-
-        /* --- FUNDO E TIPOGRAFIA GERAL --- */
         .stApp {
             background-color: #0e1117;
             background-image: radial-gradient(circle at 50% 0, #1c2331, #0e1117);
             color: #d4d4d4;
             font-family: 'Lato', sans-serif;
         }
-
-        /* --- TÍTULOS DOURADOS --- */
         h1, h2, h3, h4, h5, h6 {
             font-family: 'Cinzel', serif;
             color: #e6c200 !important;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
             font-weight: 700;
         }
-        
-        /* Título Principal mais impactante */
         h1 {
             text-align: center;
             font-size: 3.5rem;
@@ -43,17 +38,10 @@ def aplicar_estilo_visual():
             border-bottom: 2px solid #e6c200;
             padding-bottom: 20px;
         }
-
-        /* --- SIDEBAR (LOMBADA DO LIVRO) --- */
         [data-testid="stSidebar"] {
             background-color: #11141a;
             border-right: 1px solid #30363d;
         }
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-            color: #a0a0a0 !important; /* Títulos da sidebar mais discretos */
-        }
-
-        /* --- CAIXAS DE TEXTO (PERGAMINHO ESCURO) --- */
         .stTextArea textarea {
             background-color: #161b22 !important;
             color: #e6e6e6 !important;
@@ -61,12 +49,6 @@ def aplicar_estilo_visual():
             font-family: 'Lato', sans-serif;
             border-radius: 8px;
         }
-        .stTextArea textarea:focus {
-            border-color: #e6c200 !important;
-            box-shadow: 0 0 8px rgba(230, 194, 0, 0.3);
-        }
-        
-        /* --- BOTÕES MÁGICOS --- */
         .stButton > button {
             background: linear-gradient(180deg, #2e2e2e 0%, #1a1a1a 100%);
             color: #e6c200 !important;
@@ -85,46 +67,14 @@ def aplicar_estilo_visual():
             transform: translateY(-2px);
             border-color: #fff !important;
         }
-
-        /* --- ABAS (TABS) --- */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-            border-bottom: 1px solid #30363d;
-        }
-        .stTabs [data-baseweb="tab"] {
-            background-color: transparent;
-            border-radius: 4px 4px 0 0;
-            color: #8b949e;
-            font-family: 'Cinzel', serif;
-            font-size: 1.1rem;
-        }
-        .stTabs [aria-selected="true"] {
-            background-color: #161b22;
-            color: #e6c200;
-            border: 1px solid #e6c200;
-            border-bottom: none;
-        }
-
-        /* --- EXPANDERS --- */
-        .streamlit-expanderHeader {
-            background-color: #161b22;
-            color: #e6c200 !important;
-            border: 1px solid #30363d;
-            font-family: 'Cinzel', serif;
-        }
-        
-        /* --- CAIXAS DE MENSAGEM (ALERTS) --- */
-        [data-testid="stNotification"] {
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
+        .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid #30363d; }
+        .stTabs [data-baseweb="tab"] { background-color: transparent; border-radius: 4px 4px 0 0; color: #8b949e; font-family: 'Cinzel', serif; }
+        .stTabs [aria-selected="true"] { background-color: #161b22; color: #e6c200; border: 1px solid #e6c200; border-bottom: none; }
+        .streamlit-expanderHeader { background-color: #161b22; color: #e6c200 !important; border: 1px solid #30363d; font-family: 'Cinzel', serif; }
     </style>
     """, unsafe_allow_html=True)
 
-# Aplica o estilo imediatamente
 aplicar_estilo_visual()
-
 st.title("🏰 World Architect")
 st.markdown("<div style='text-align: center; color: #8b949e; margin-top: -20px; margin-bottom: 30px;'>O Grimório Vivo de Lore & Criação</div>", unsafe_allow_html=True)
 
@@ -136,6 +86,8 @@ if "auditoria_dados" not in st.session_state: st.session_state.auditoria_dados =
 if "messages" not in st.session_state: st.session_state.messages = []
 if "glossario" not in st.session_state: st.session_state.glossario = {}
 if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = ""
+# NOVO: Cache da timeline visual
+if "timeline_dados" not in st.session_state: st.session_state.timeline_dados = []
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
 if not firebase_admin._apps:
@@ -238,6 +190,8 @@ if "auditoria_dados" not in st.session_state: st.session_state.auditoria_dados =
 if "messages" not in st.session_state: st.session_state.messages = caches_salvos.get("chat_history", [])
 if "glossario" not in st.session_state: st.session_state.glossario = caches_salvos.get("glossario", {})
 if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = caches_salvos.get("arvore_dot", "")
+# NOVO: Cache Timeline
+if "timeline_dados" not in st.session_state: st.session_state.timeline_dados = caches_salvos.get("timeline_dados", [])
 
 # --- 5. INTERFACE ---
 st.sidebar.header("⚙️ Configuração Mágica")
@@ -266,9 +220,11 @@ except Exception as e:
     st.stop()
 
 # --- ABAS ---
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_mapa = st.tabs([
-    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", "📚 Glossário", "🌳 Genealogia", "🗺️ Mapa"
-])
+abas = [
+    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
+    "📚 Glossário", "🌳 Genealogia", "📉 Timeline Visual", "🗺️ Mapa"
+]
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_timeline, tab_mapa = st.tabs(abas)
 
 # === ABA 1: EDITOR ===
 with tab_editor:
@@ -410,7 +366,7 @@ with tab_erros:
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                     prompt_erros = f"""
-                    Auditor Lógico. Cruze dados. Ache contradições.
+                    Auditor Lógico. Cruze dados. Ache contradições. Use Bullet Points.
                     JSON: {{ "resumo_geral": "...", "detalhes": {{ "Categoria": "• 🔴 ERRO: ...", ... }} }}
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
@@ -464,7 +420,7 @@ with tab_glossario:
                     try:
                         lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                         prompt = f"""
-                        Bibliotecário. Extraia termos (Nomes, Cidades, Magias). Definição curta.
+                        Bibliotecário. Extraia termos. Definição curta.
                         JSON: {{ "Termo": "Definição...", ... }}
                         LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                         """
@@ -531,7 +487,85 @@ with tab_genealogia:
             st.graphviz_chart(st.session_state.arvore_dot)
         except Exception as e: st.error(f"Erro visual: {e}")
 
-# === ABA 8: MAPA ===
+# === ABA 8: TIMELINE VISUAL (NOVA) ===
+with tab_timeline:
+    st.header("📉 A Marcha do Tempo")
+    
+    if not api_key: st.warning("Insira a API Key.")
+    else:
+        if st.session_state.timeline_dados: st.success("📂 Cronologia recuperada.")
+        
+        if st.button("🔄 Gerar Gráfico Temporal"):
+            with st.spinner("Calculando eras..."):
+                try:
+                    # Pega apenas textos com 'Timeline' no nome
+                    lore_timelines = {k:v for k,v in lore_data.items() if "Timeline" in k and v.strip()}
+                    
+                    prompt_time = f"""
+                    Analise estas Timelines. Extraia TODOS os eventos.
+                    SAIDA JSON: [
+                        {{ "ano_numerico": 100, "data_exibicao": "Ano 100 da Era do Fogo", "evento": "Guerra X", "grupo": "Elfos" }},
+                        ...
+                    ]
+                    (Converta datas para um número inteiro aproximado para ordenação. Ex: '2000 AC' = -2000).
+                    LORE: {json.dumps(lore_timelines, ensure_ascii=False)}
+                    """
+                    model = genai.GenerativeModel(modelo_escolhido)
+                    res = model.generate_content(prompt_time)
+                    dados_tl = extrair_json(res.text)
+                    
+                    if dados_tl:
+                        st.session_state.timeline_dados = dados_tl
+                        salvar_cache_analise("timeline_dados", dados_tl)
+                        st.success("Cronologia processada!")
+                        st.rerun()
+                    else: st.error("Erro JSON na Timeline.")
+                except Exception as e: st.error(str(e))
+
+    # Renderiza o Gráfico com Plotly
+    if st.session_state.timeline_dados:
+        try:
+            df = pd.DataFrame(st.session_state.timeline_dados)
+            
+            if not df.empty:
+                fig = px.scatter(
+                    df, 
+                    x="ano_numerico", 
+                    y="grupo", 
+                    text="evento",
+                    hover_data=["data_exibicao", "evento"],
+                    color="grupo",
+                    title="Linha do Tempo Universal",
+                    height=600
+                )
+                
+                # Estilização Dark/Gold para combinar com o tema
+                fig.update_layout(
+                    font_family="Lato",
+                    font_color="#d4d4d4",
+                    title_font_family="Cinzel",
+                    title_font_color="#e6c200",
+                    paper_bgcolor="#0e1117",
+                    plot_bgcolor="#161b22",
+                    xaxis=dict(showgrid=True, gridcolor="#30363d"),
+                    yaxis=dict(showgrid=True, gridcolor="#30363d"),
+                )
+                fig.update_traces(
+                    textposition='top center',
+                    marker=dict(size=12, line=dict(width=2, color='#e6c200'))
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                with st.expander("Ver Dados Brutos (Tabela)"):
+                    st.dataframe(df)
+            else:
+                st.warning("Nenhum evento encontrado nas timelines.")
+                
+        except Exception as e:
+            st.error(f"Erro ao desenhar gráfico: {e}")
+
+# === ABA 9: MAPA ===
 with tab_mapa:
     st.header("🗺️ Cartografia")
     mapa_b64 = carregar_mapa()
