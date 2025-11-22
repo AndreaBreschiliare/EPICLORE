@@ -25,7 +25,6 @@ db = firestore.client()
 
 # --- 2. FUNÇÕES DE SUPORTE ---
 def carregar_lore():
-    # Carrega apenas os textos
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc = doc_ref.get()
     if doc.exists:
@@ -36,7 +35,6 @@ def carregar_lore():
         return dados_iniciais
 
 def carregar_mapa():
-    # Carrega apenas o mapa (separado para não pesar)
     doc_ref = db.collection("mundos").document("mapa_oficial")
     doc = doc_ref.get()
     if doc.exists:
@@ -273,36 +271,31 @@ with tab_erros:
         criar_secao_erros("Análise: Timeline", "Timeline")
         criar_secao_erros("Análise: Povos", "Povo")
 
-# === ABA 6: MAPA (NOVA) ===
+# === ABA 6: MAPA (Com suporte a WebP) ===
 with tab_mapa:
     st.header("🗺️ Cartografia Oficial")
     
-    # 1. Carrega do Banco
     mapa_b64 = carregar_mapa()
     
     if mapa_b64:
-        # Exibe a imagem decodificando o código
         st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi Atual", use_container_width=True)
     else:
-        st.info("Nenhum mapa foi arquivado nos registros ainda.")
+        st.info("Nenhum mapa arquivado.")
 
     st.markdown("---")
     st.subheader("Atualizar Mapa")
-    st.warning("⚠️ Use imagens leves (JPG/PNG) com menos de 1MB para não travar o banco.")
+    st.warning("⚠️ Use imagens leves (menos de 1MB). Suporta: JPG, PNG, WEBP.")
     
-    # 2. Upload
-    arquivo_mapa = st.file_uploader("Carregar nova imagem", type=["jpg", "jpeg", "png"])
+    # MUDANÇA AQUI: Adicionado 'webp' na lista
+    arquivo_mapa = st.file_uploader("Carregar nova imagem", type=["jpg", "jpeg", "png", "webp"])
     
     if arquivo_mapa:
         if st.button("📤 Enviar para a Nuvem"):
             try:
-                # Converte a imagem para código Base64
                 bytes_data = arquivo_mapa.getvalue()
                 b64_string = base64.b64encode(bytes_data).decode('utf-8')
-                
-                # Salva no Firestore
                 salvar_mapa_b64(b64_string)
-                st.success("Mapa atualizado com sucesso! Recarregando...")
+                st.success("Mapa atualizado! Recarregando...")
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao salvar mapa (provavelmente muito grande): {e}")
+                st.error(f"Erro ao salvar mapa: {e}")
