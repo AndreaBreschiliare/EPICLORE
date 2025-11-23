@@ -20,7 +20,7 @@ import pytz
 import urllib.parse
 
 # ==============================================================================
-# 1. CONFIGURAÇÃO DA PÁGINA E ESTILO VISUAL (CSS)
+# 1. CONFIGURAÇÃO DA PÁGINA
 # ==============================================================================
 st.set_page_config(
     page_title="World Architect Pro", 
@@ -29,12 +29,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ==============================================================================
+# 2. ESTILO VISUAL (CSS - GRIMÓRIO DARK)
+# ==============================================================================
 def aplicar_estilo_visual():
     st.markdown("""
     <style>
+        /* Importação de Fontes */
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
         
-        /* --- GERAL --- */
+        /* --- CONFIGURAÇÃO GERAL --- */
         .stApp {
             background-color: #0e1117;
             background-image: radial-gradient(circle at 50% 0, #1c2331, #0e1117);
@@ -42,7 +46,7 @@ def aplicar_estilo_visual():
             font-family: 'Lato', sans-serif;
         }
         
-        /* --- TÍTULOS --- */
+        /* --- CABEÇALHOS E TÍTULOS --- */
         h1, h2, h3, h4, h5, h6 {
             font-family: 'Cinzel', serif;
             color: #e6c200 !important;
@@ -56,7 +60,7 @@ def aplicar_estilo_visual():
             border-right: 1px solid #30363d;
         }
         
-        /* --- CAIXAS DE TEXTO E INPUTS --- */
+        /* --- INPUTS (TEXTO, SELECTBOX) --- */
         .stTextArea textarea, .stTextInput input, .stSelectbox div[data-baseweb="select"] {
             background-color: #161b22 !important;
             color: #e6e6e6 !important;
@@ -64,12 +68,14 @@ def aplicar_estilo_visual():
             font-family: 'Lato', sans-serif;
             border-radius: 8px;
         }
+        
+        /* Efeito de Foco nos Inputs */
         .stTextArea textarea:focus, .stTextInput input:focus {
             border-color: #e6c200 !important;
             box-shadow: 0 0 8px rgba(230, 194, 0, 0.3);
         }
         
-        /* --- BOTÕES --- */
+        /* --- BOTÕES ESTILIZADOS --- */
         .stButton > button {
             background: linear-gradient(180deg, #2e2e2e 0%, #1a1a1a 100%);
             color: #e6c200 !important;
@@ -82,6 +88,7 @@ def aplicar_estilo_visual():
             letter-spacing: 1px;
             width: 100%;
         }
+        
         .stButton > button:hover {
             background: linear-gradient(180deg, #e6c200 0%, #b39700 100%);
             color: #0e1117 !important;
@@ -102,19 +109,29 @@ def aplicar_estilo_visual():
             gap: 20px;
             align-items: flex-start;
         }
+        
         .npc-img-container {
             flex-shrink: 0;
         }
+        
         .npc-avatar {
             width: 100px;
             height: 100px;
-            border-radius: 8px; /* Quadrado arredondado para retrato */
+            border-radius: 8px;
             object-fit: cover;
             border: 2px solid #e6c200;
+            transition: transform 0.2s;
         }
+        
+        .npc-avatar:hover {
+            transform: scale(1.05);
+            cursor: pointer;
+        }
+        
         .npc-content {
             flex-grow: 1;
         }
+        
         .npc-header {
             font-family: 'Cinzel', serif;
             font-size: 1.4em;
@@ -126,6 +143,7 @@ def aplicar_estilo_visual():
             justify-content: space-between;
             align-items: center;
         }
+        
         .npc-sub {
             font-size: 0.7em;
             color: #aaa;
@@ -134,17 +152,20 @@ def aplicar_estilo_visual():
             letter-spacing: 1px;
             margin-left: 10px;
         }
+        
         .npc-body {
             font-size: 0.95em;
             color: #ddd;
             line-height: 1.6;
         }
+        
         .npc-label {
             color: #e6c200;
             font-weight: bold;
             font-size: 0.9em;
             margin-right: 5px;
         }
+        
         .npc-lore {
             margin-top: 10px;
             font-style: italic;
@@ -155,7 +176,7 @@ def aplicar_estilo_visual():
             border-left: 3px solid #555;
         }
 
-        /* --- TOAST --- */
+        /* --- TOAST (Notificações) --- */
         div[data-testid="stToast"] {
             background-color: #161b22;
             border: 1px solid #e6c200;
@@ -163,17 +184,19 @@ def aplicar_estilo_visual():
             font-family: 'Cinzel', serif;
         }
         
-        /* --- ABAS --- */
+        /* --- ABAS (Tabs) --- */
         .stTabs [data-baseweb="tab-list"] {
             gap: 8px;
             border-bottom: 1px solid #30363d;
         }
+        
         .stTabs [data-baseweb="tab"] {
             background-color: transparent;
             border-radius: 4px 4px 0 0;
             color: #8b949e;
             font-family: 'Cinzel', serif;
         }
+        
         .stTabs [aria-selected="true"] {
             background-color: #161b22;
             color: #e6c200;
@@ -186,21 +209,47 @@ def aplicar_estilo_visual():
 aplicar_estilo_visual()
 
 # ==============================================================================
-# 2. CONSTANTES E DADOS DE RPG
+# 3. DADOS E CONSTANTES DO RPG
 # ==============================================================================
 
-# Categorias de Lore (Texto)
+# Listas de Lore (Categorias de Texto)
 CATEGORIAS = [
-    "Absencia - Caos", "Radiancia - Ordem", "Warp", "Os 4 Cavaleiros",
-    "Facções", "Epic! Aetherius", "Resumo Primeira Era", "Resumo Segunda Era", 
-    "Cosmogenese - Resumo", "Origem por Povos (Geral)",
-    "Timeline - Cataclisma", "Timeline - Badlands", "Timeline - Elfos", "Timeline - Drows", 
-    "Timeline - Anões", "Timeline - Orcs", "Timeline - Humanos", "Timeline - Pequilhos",
-    "Povo - Aiglana", "Povo - Haroloth", "Povo - Leste", "Povo - Bjorska", 
-    "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
+    # Cosmologia e Metafísica
+    "Absencia - Caos", 
+    "Radiancia - Ordem", 
+    "Warp", 
+    "Os 4 Cavaleiros",
+    
+    # Documentos Gerais
+    "Facções", 
+    "Epic! Aetherius", 
+    "Resumo Primeira Era", 
+    "Resumo Segunda Era", 
+    "Cosmogenese - Resumo", 
+    "Origem por Povos (Geral)",
+    
+    # Linhas do Tempo
+    "Timeline - Cataclisma", 
+    "Timeline - Badlands", 
+    "Timeline - Elfos", 
+    "Timeline - Drows", 
+    "Timeline - Anões", 
+    "Timeline - Orcs", 
+    "Timeline - Humanos", 
+    "Timeline - Pequilhos",
+    
+    # Povos e Raças
+    "Povo - Aiglana", 
+    "Povo - Haroloth", 
+    "Povo - Leste", 
+    "Povo - Bjorska", 
+    "Povo - Aluriel", 
+    "Povo - Baduran", 
+    "Povo - Gulthrak", 
+    "Povo - Polkinea"
 ]
 
-# Dados para o Gerador de NPC
+# Estruturas para o Gerador de NPC
 CAMINHOS_RPG = {
     "Sabio": [
         "Necromante", "Clérigo", "Druida", "Magus", "Dançarino das Sombras Caster", 
@@ -229,8 +278,9 @@ RELIGIOES = [
 ]
 
 # ==============================================================================
-# 3. INICIALIZAÇÃO DE ESTADO (SESSION STATE)
+# 4. INICIALIZAÇÃO DO ESTADO (SESSION STATE)
 # ==============================================================================
+# Verifica e cria variáveis de sessão se não existirem
 if "sugestoes_ia" not in st.session_state:
     st.session_state.sugestoes_ia = {}
 if "erros_ia" not in st.session_state:
@@ -256,7 +306,7 @@ if "mapa_pins" not in st.session_state:
 if "npcs" not in st.session_state:
     st.session_state.npcs = []
     
-# Variáveis temporárias para criação de NPC (para não perder dados ao recarregar)
+# Variáveis temporárias para o fluxo de criação de NPC
 if "temp_npc_nome" not in st.session_state:
     st.session_state.temp_npc_nome = ""
 if "temp_npc_img" not in st.session_state:
@@ -265,7 +315,7 @@ if "temp_npc_lore" not in st.session_state:
     st.session_state.temp_npc_lore = ""
 
 # ==============================================================================
-# 4. CONEXÃO COM O BANCO DE DADOS (FIREBASE)
+# 5. CONEXÃO COM FIREBASE
 # ==============================================================================
 if not firebase_admin._apps:
     try:
@@ -279,11 +329,13 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ==============================================================================
-# 5. FUNÇÕES AUXILIARES (LÓGICA DE NEGÓCIO)
+# 6. FUNÇÕES: E-MAIL E LOGS
 # ==============================================================================
-
 def enviar_alerta_email(categoria_alterada):
-    """Envia e-mail de notificação via Gmail (Simples)."""
+    """
+    Envia um e-mail simples usando smtplib e Gmail.
+    Requer configuração no secrets.toml: [email] usuario, senha, destinatario.
+    """
     if "email" not in st.secrets:
         return False
         
@@ -315,7 +367,12 @@ def enviar_alerta_email(categoria_alterada):
         print(f"Erro ao enviar email: {e}")
         return False
 
+# ==============================================================================
+# 7. FUNÇÕES: BANCO DE DADOS (CRUD)
+# ==============================================================================
+
 def carregar_lore():
+    """Carrega todos os textos de lore do Firebase."""
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc = doc_ref.get()
     if doc.exists:
@@ -326,47 +383,12 @@ def carregar_lore():
         return dados_iniciais
 
 def salvar_categoria(categoria, texto):
+    """Salva uma categoria específica e dispara o e-mail."""
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc_ref.set({categoria: texto}, merge=True)
     enviar_alerta_email(categoria)
 
-def carregar_cache_analises():
-    doc_ref = db.collection("mundos").document("cache_analises")
-    doc = doc_ref.get()
-    if doc.exists:
-        return doc.to_dict()
-    return {}
-
-def salvar_cache_analise(tipo, dados):
-    doc_ref = db.collection("mundos").document("cache_analises")
-    doc_ref.set({tipo: dados}, merge=True)
-
-def extrair_json(texto):
-    try:
-        match = re.search(r"```json\n(.*?)\n```", texto, re.DOTALL)
-        if match:
-            return json.loads(match.group(1))
-        match = re.search(r"\{.*\}", texto, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
-        return None
-    except:
-        return None
-
-def extrair_dot(texto):
-    try:
-        match = re.search(r"```(?:dot|graphviz)\n(.*?)\n```", texto, re.DOTALL)
-        if match:
-            return match.group(1)
-        if "digraph" in texto:
-            inicio = texto.find("digraph")
-            fim = texto.rfind("}") + 1
-            return texto[inicio:fim]
-        return None
-    except:
-        return None
-
-# --- FUNÇÕES NPC ---
+# --- Funções para NPCs ---
 def carregar_npcs():
     doc = db.collection("mundos").document("npc_database").get()
     if doc.exists:
@@ -384,7 +406,7 @@ def deletar_npc_index(index):
         npcs.pop(index)
         db.collection("mundos").document("npc_database").set({"lista": npcs})
 
-# --- FUNÇÕES MAPA E IMAGEM ---
+# --- Funções para Mapas e Cache ---
 def salvar_mapa_b64(b64_string):
     db.collection("mundos").document("mapa_oficial").set({"imagem_b64": b64_string})
 
@@ -403,7 +425,51 @@ def carregar_pins():
 def salvar_pins(lista_pins):
     db.collection("mundos").document("mapa_pins").set({"lista": lista_pins})
 
+def carregar_cache_analises():
+    """Recupera auditorias, grafos e chats salvos."""
+    doc = db.collection("mundos").document("cache_analises").get()
+    if doc.exists:
+        return doc.to_dict()
+    return {}
+
+def salvar_cache_analise(tipo, dados):
+    """Salva auditorias, grafos e chats no banco."""
+    doc_ref = db.collection("mundos").document("cache_analises")
+    doc_ref.set({tipo: dados}, merge=True)
+
+# ==============================================================================
+# 8. FUNÇÕES: UTILITÁRIOS (PARSING, IMAGEM)
+# ==============================================================================
+
+def extrair_json(texto):
+    """Tenta extrair um JSON válido de uma resposta da IA."""
+    try:
+        match = re.search(r"```json\n(.*?)\n```", texto, re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
+        match = re.search(r"\{.*\}", texto, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        return None
+    except:
+        return None
+
+def extrair_dot(texto):
+    """Extrai código Graphviz DOT de uma resposta da IA."""
+    try:
+        match = re.search(r"```(?:dot|graphviz)\n(.*?)\n```", texto, re.DOTALL)
+        if match:
+            return match.group(1)
+        if "digraph" in texto:
+            inicio = texto.find("digraph")
+            fim = texto.rfind("}") + 1
+            return texto[inicio:fim]
+        return None
+    except:
+        return None
+
 def comprimir_imagem(arquivo_upload):
+    """Redimensiona e comprime imagem para caber no Firestore (<1MB)."""
     image = Image.open(arquivo_upload)
     
     if image.mode in ("RGBA", "P"):
@@ -421,11 +487,11 @@ def comprimir_imagem(arquivo_upload):
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 # ==============================================================================
-# 6. CARREGAMENTO INICIAL (CACHE E BANCO)
+# 9. CARREGAMENTO DE DADOS NA INICIALIZAÇÃO
 # ==============================================================================
 caches_salvos = carregar_cache_analises()
 
-# Popula session_state com dados do banco se estiverem vazios
+# Preenche o session_state com dados do banco se estiverem vazios
 if not st.session_state.sugestoes_ia: 
     st.session_state.sugestoes_ia = caches_salvos.get("sugestoes", {})
 if not st.session_state.erros_ia: 
@@ -451,6 +517,7 @@ if not st.session_state.mapa_pins:
 if not st.session_state.npcs:
     st.session_state.npcs = carregar_npcs()
 
+# Carrega o texto principal
 try:
     lore_data = carregar_lore()
 except Exception as e:
@@ -458,7 +525,7 @@ except Exception as e:
     st.stop()
 
 # ==============================================================================
-# 7. BARRA LATERAL
+# 10. BARRA LATERAL E CONFIGURAÇÃO
 # ==============================================================================
 with st.sidebar:
     st.title("🏰 World Architect")
@@ -470,6 +537,7 @@ with st.sidebar:
     if api_key:
         genai.configure(api_key=api_key)
         try:
+            # Lista modelos e tenta pegar o Flash ou Pro
             lista_modelos = []
             for m in genai.list_models():
                 if 'generateContent' in m.supported_generation_methods:
@@ -499,7 +567,7 @@ with st.sidebar:
             st.warning("Termo não encontrado.")
 
 # ==============================================================================
-# 8. ESTRUTURA DE ABAS
+# 11. ESTRUTURA DE ABAS
 # ==============================================================================
 abas = [
     "✍️ Editor", 
@@ -513,13 +581,13 @@ abas = [
     "📉 Timeline", 
     "📊 Dashboards", 
     "🗺️ Mapa",
-    "🎲 NPC & Quests" # Aba movida para o final
+    "🎲 NPC & Quests" # Aba movida para o final conforme pedido
 ]
 
 tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_conexoes, tab_timeline, tab_dashboard, tab_mapa, tab_npc = st.tabs(abas)
 
 # ==============================================================================
-# ABA 1: EDITOR (COM EMAIL E ÍNDICE)
+# ABA 1: EDITOR
 # ==============================================================================
 with tab_editor:
     col_titulo, col_filtro = st.columns([3, 1])
@@ -604,7 +672,7 @@ with tab_chat:
                     st.error(f"Erro na IA: {e}")
 
 # ==============================================================================
-# ABA 3: AUDITORIA (CRÍTICA E CÍNICA)
+# ABA 3: AUDITORIA (CRÍTICA)
 # ==============================================================================
 with tab_aval:
     st.header("⚖️ O Julgamento Final")
@@ -931,7 +999,7 @@ with tab_genealogia:
         except Exception as e: st.error(f"Erro visual: {e}")
 
 # ==============================================================================
-# ABA 8: CONEXÕES (DARK MODE FIX)
+# ABA 8: CONEXÕES
 # ==============================================================================
 with tab_conexoes:
     st.header("🕸️ Teia de Influência")
@@ -949,15 +1017,29 @@ with tab_conexoes:
                     
                     prompt_grafo = f"""
                     Atue como um Designer de Informação.
-                    TAREFA: Criar um Grafo de Conexões (DOT) para MODO ESCURO.
+                    TAREFA: Criar um Grafo de Conexões (Graphviz DOT) extremamente limpo e legível para fundo escuro.
                     
-                    graph [bgcolor="#0e1117", layout=fdp, K=2.5, overlap=false, splines=curved];
-                    node [shape=rect, style="filled,rounded", fillcolor="#1f1f1f", color="#e6c200", fontcolor="#ffea00", penwidth=2, fontname="Arial", fontsize=14];
-                    edge [penwidth=1.2, fontname="Arial", fontsize=11];
+                    REGRAS VISUAIS OBRIGATÓRIAS:
+                    1. CONFIGURAÇÃO DO GRAFO:
+                       graph [
+                           bgcolor="#0e1117";
+                           layout=fdp;        // Layout de força
+                           overlap=false;     
+                           splines=curved;    
+                           K=2.5;             // ESPAÇAMENTO
+                           sep="+25,25";      
+                       ];
                     
-                    - Aliado: color="#00ff00" fontcolor="#00ff00"
-                    - Inimigo: color="#ff3333" fontcolor="#ff3333"
-                    - Neutro: color="#e6c200" fontcolor="#e6c200"
+                    2. ESTILO DOS NÓS:
+                       node [shape=rect, style="filled,rounded", fillcolor="#1f1f1f", color="#e6c200", fontcolor="#ffea00", penwidth=2, fontname="Arial-Bold", fontsize=14, margin=0.3];
+                       
+                    3. ESTILO DAS LINHAS:
+                       edge [penwidth=1.2, fontname="Arial", fontsize=11, arrowsize=0.8];
+                    
+                    4. RELAÇÕES E CORES:
+                       - Aliado/Amigo -> color="#00ff00", fontcolor="#00ff00"
+                       - Inimigo/Rival -> color="#ff3333", fontcolor="#ff3333"
+                       - Neutro/Suserano -> color="#e6c200", fontcolor="#e6c200"
                     
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     RESPONDA APENAS CODIGO DOT.
@@ -998,7 +1080,7 @@ with tab_timeline:
                     lore_timelines = {k:v for k,v in lore_data.items() if "Timeline" in k and v.strip()}
                     prompt_time = f"""
                     Analise Timelines. Extraia eventos.
-                    SAIDA JSON: [{{ "ano_numerico": 100, "data_exibicao": "Ano 100", "evento": "...", "grupo": "..." }}]
+                    SAIDA JSON: [{{ "ano_numerico": 100, "data_exibicao": "Ano 100", "evento": "Guerra X", "grupo": "Elfos" }}]
                     LORE: {json.dumps(lore_timelines, ensure_ascii=False)}
                     """
                     model = genai.GenerativeModel(modelo_escolhido)
@@ -1157,14 +1239,14 @@ with tab_mapa:
                 except Exception as e: st.error(str(e))
 
 # ==============================================================================
-# ABA 12: NPC & QUESTS (FINAL)
+# ABA 12: NPC & QUESTS (INTEGRADO)
 # ==============================================================================
 with tab_npc:
     st.header("🎲 Mestre dos Jogos")
     
     c_criar, c_lista = st.columns([1, 1.5])
     
-    # --- COLUNA DA ESQUERDA: CRIAÇÃO ---
+    # --- CRIAÇÃO (ESQUERDA) ---
     with c_criar:
         st.subheader("🛠️ Forja de Personagens")
         
@@ -1190,7 +1272,8 @@ with tab_npc:
             if st.button("🎲 Gerar Nome"):
                 if api_key:
                     try:
-                        p = f"Gere UM nome fantasia para um {raca_sel} {classe_sel} da cultura {cultura_sel}. Só o nome."
+                        # PROMPT AJUSTADO: "Apenas UM nome"
+                        p = f"Gere APENAS UM nome fantasia único (sem sobrenome se não precisar) para um {raca_sel} {classe_sel} da cultura {cultura_sel}. Responda somente o nome."
                         st.session_state.temp_npc_nome = genai.GenerativeModel(modelo_escolhido).generate_content(p).text.strip()
                         st.success("Nome criado!")
                     except: st.error("Erro IA")
@@ -1198,7 +1281,7 @@ with tab_npc:
         
         with col_gen2:
             desc_vis = st.text_input("Aparência:", placeholder="Ex: Cicatriz no olho")
-            if st.button("📸 Retrato"):
+            if st.button("📸 Retrato (200px)"):
                 if api_key:
                     try:
                         # Gera prompt em inglês
@@ -1212,8 +1295,12 @@ with tab_npc:
         
         # Mostra resultados temporários
         nome_final = st.text_input("Nome Final", value=st.session_state.temp_npc_nome)
+        
+        # AJUSTE: Imagem Clicável (Link para download)
         if st.session_state.temp_npc_img:
-            st.image(st.session_state.temp_npc_img, width=200)
+            link_html = f'<a href="{st.session_state.temp_npc_img}" target="_blank"><img src="{st.session_state.temp_npc_img}" width="200" style="border-radius:8px; border: 2px solid #e6c200;"></a>'
+            st.markdown(link_html, unsafe_allow_html=True)
+            st.caption("Clique na imagem para abrir e salvar.")
 
         st.divider()
         st.markdown("##### 3. História")
@@ -1254,11 +1341,17 @@ with tab_npc:
             st.info("Nenhum NPC cadastrado.")
         else:
             for i, npc in enumerate(st.session_state.npcs):
-                img_html = f'<img src="{npc.get("img_url")}" class="npc-avatar">' if npc.get("img_url") else '<div class="npc-avatar" style="background:#333;display:flex;align-items:center;justify-content:center;font-size:2em">👤</div>'
+                # Imagem na lista também é clicável
+                img_url = npc.get("img_url")
+                img_html = ""
+                if img_url:
+                    img_html = f'<div class="npc-img-container"><a href="{img_url}" target="_blank"><img src="{img_url}" class="npc-avatar"></a></div>'
+                else:
+                    img_html = f'<div class="npc-img-container"><div class="npc-avatar" style="background:#333;display:flex;align-items:center;justify-content:center;font-size:2em">👤</div></div>'
                 
                 st.markdown(f"""
                 <div class="npc-card">
-                    <div class="npc-img-container">{img_html}</div>
+                    {img_html}
                     <div class="npc-content">
                         <div class="npc-header">
                             {npc['nome']}
@@ -1282,6 +1375,7 @@ with tab_npc:
                     st.rerun()
         
         st.divider()
+        # GERADOR DE QUESTS MANTIDO AQUI
         with st.expander("📜 Gerador de Quests (Baseado no Lore)"):
             if st.button("Gerar 3 Aventuras"):
                 if api_key:
