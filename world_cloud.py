@@ -11,16 +11,16 @@ import io
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from streamlit_image_coordinates import streamlit_image_coordinates
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="World Architect Pro", layout="wide", page_icon="🏰")
 
-# --- 🎨 ESTILO VISUAL (CSS MÁGICO + MOBILE) ---
+# --- 🎨 ESTILO VISUAL ---
 def aplicar_estilo_visual():
     st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
-        
         .stApp {
             background-color: #0e1117;
             background-image: radial-gradient(circle at 50% 0, #1c2331, #0e1117);
@@ -33,59 +33,17 @@ def aplicar_estilo_visual():
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
             font-weight: 700;
         }
-        
-        @media (max-width: 768px) {
-            .stColumns { flex-direction: column; }
-            .stButton > button { width: 100%; margin-top: 10px; }
-        }
-
-        [data-testid="stSidebar"] {
-            background-color: #11141a;
-            border-right: 1px solid #30363d;
-        }
-        
-        .stTextArea textarea {
-            background-color: #161b22 !important;
-            color: #e6e6e6 !important;
-            border: 1px solid #30363d !important;
-            font-family: 'Lato', sans-serif;
-            border-radius: 8px;
-        }
-        .stTextArea textarea:focus {
-            border-color: #e6c200 !important;
-            box-shadow: 0 0 8px rgba(230, 194, 0, 0.3);
-        }
-        
         .stButton > button {
             background: linear-gradient(180deg, #2e2e2e 0%, #1a1a1a 100%);
             color: #e6c200 !important;
             border: 1px solid #e6c200 !important;
             font-family: 'Cinzel', serif;
-            font-weight: bold;
-            border-radius: 6px;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
-        .stButton > button:hover {
-            background: linear-gradient(180deg, #e6c200 0%, #b39700 100%);
-            color: #0e1117 !important;
-            box-shadow: 0 0 15px rgba(230, 194, 0, 0.6);
-            transform: translateY(-2px);
-            border-color: #fff !important;
+        /* Ajuste para o componente de coordenadas */
+        iframe[title="streamlit_image_coordinates.streamlit_image_coordinates"] {
+            border: 2px solid #e6c200;
+            border-radius: 8px;
         }
-        
-        div[data-testid="stToast"] {
-            background-color: #161b22;
-            border: 1px solid #e6c200;
-            color: #e6c200;
-            font-family: 'Cinzel', serif;
-        }
-        
-        .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid #30363d; }
-        .stTabs [data-baseweb="tab"] { background-color: transparent; border-radius: 4px 4px 0 0; color: #8b949e; font-family: 'Cinzel', serif; }
-        .stTabs [aria-selected="true"] { background-color: #161b22; color: #e6c200; border: 1px solid #e6c200; border-bottom: none; }
-        .streamlit-expanderHeader { background-color: #161b22; color: #e6c200 !important; border: 1px solid #30363d; font-family: 'Cinzel', serif; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -103,6 +61,8 @@ if "arvore_dot" not in st.session_state: st.session_state.arvore_dot = ""
 if "timeline_dados" not in st.session_state: st.session_state.timeline_dados = []
 if "dashboard_dados" not in st.session_state: st.session_state.dashboard_dados = []
 if "grafo_dot" not in st.session_state: st.session_state.grafo_dot = ""
+# NOVO: Estado para marcadores do mapa
+if "mapa_pins" not in st.session_state: st.session_state.mapa_pins = []
 
 # --- 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE) ---
 if not firebase_admin._apps:
@@ -131,6 +91,17 @@ def carregar_mapa():
     doc = doc_ref.get()
     if doc.exists: return doc.to_dict().get("imagem_b64", None)
     return None
+
+# NOVO: Carregar e Salvar Marcadores (Pins)
+def carregar_pins():
+    doc_ref = db.collection("mundos").document("mapa_pins")
+    doc = doc_ref.get()
+    if doc.exists: return doc.to_dict().get("lista", [])
+    return []
+
+def salvar_pins(lista_pins):
+    doc_ref = db.collection("mundos").document("mapa_pins")
+    doc_ref.set({"lista": lista_pins})
 
 def carregar_cache_analises():
     doc_ref = db.collection("mundos").document("cache_analises")
@@ -197,7 +168,6 @@ CATEGORIAS = [
 
 # --- 4. CARREGAMENTO ---
 caches_salvos = carregar_cache_analises()
-# (Recupera estados do banco...)
 if not st.session_state.sugestoes_ia: st.session_state.sugestoes_ia = caches_salvos.get("sugestoes", {})
 if not st.session_state.erros_ia: st.session_state.erros_ia = caches_salvos.get("erros", {})
 if not st.session_state.resumo_erros: st.session_state.resumo_erros = caches_salvos.get("resumo_erros", "")
@@ -208,6 +178,7 @@ if not st.session_state.arvore_dot: st.session_state.arvore_dot = caches_salvos.
 if not st.session_state.timeline_dados: st.session_state.timeline_dados = caches_salvos.get("timeline_dados", [])
 if not st.session_state.dashboard_dados: st.session_state.dashboard_dados = caches_salvos.get("dashboard_dados", [])
 if not st.session_state.grafo_dot: st.session_state.grafo_dot = caches_salvos.get("grafo_dot", "")
+if not st.session_state.mapa_pins: st.session_state.mapa_pins = carregar_pins()
 
 try:
     lore_data = carregar_lore()
@@ -215,13 +186,12 @@ except Exception as e:
     st.error(f"Erro Banco: {e}")
     st.stop()
 
-# --- 5. SIDEBAR LIMPA ---
+# --- 5. SIDEBAR ---
 with st.sidebar:
     st.title("🏰 World Architect")
     st.header("⚙️ Configuração")
     api_key = st.text_input("Chave do Oráculo (API Key)", type="password")
     
-    # Configuração de IA
     modelo_escolhido = "gemini-pro" 
     if api_key:
         genai.configure(api_key=api_key)
@@ -232,8 +202,6 @@ with st.sidebar:
         except: pass
 
     st.divider()
-    
-    # --- BUSCA GLOBAL (ÚTIL) ---
     st.subheader("🔍 Busca Global")
     termo_busca = st.text_input("Procurar no Lore:", placeholder="Ex: Elfos")
     if termo_busca:
@@ -255,7 +223,7 @@ abas = [
 ]
 tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_conexoes, tab_timeline, tab_dashboard, tab_mapa = st.tabs(abas)
 
-# === ABA 1: EDITOR (COM ÍNDICE) ===
+# === ABA 1: EDITOR ===
 with tab_editor:
     col_titulo, col_filtro = st.columns([3, 1])
     with col_titulo:
@@ -267,7 +235,6 @@ with tab_editor:
         )
 
     def criar_secao_editor(titulo, filtro_chave):
-        # Lógica de filtro visual
         if filtro_visualizacao != "Ver Tudo":
             if filtro_visualizacao == "Geral/Cosmologia" and filtro_chave != "Geral": return
             if filtro_visualizacao == "Timeline" and filtro_chave != "Timeline": return
@@ -285,8 +252,6 @@ with tab_editor:
                 with cols[idx % 2]:
                     val_atual = lore_data.get(cat, "")
                     novo_val = st.text_area(cat, value=val_atual, height=500, key=f"txt_{cat}")
-                    
-                    # Feedback Visual (Toast)
                     if st.button(f"💾 Salvar {cat}", key=f"btn_{cat}"):
                         salvar_categoria(cat, novo_val)
                         st.toast(f"Alterações em '{cat}' salvas com sucesso!", icon="✅")
@@ -407,7 +372,7 @@ with tab_erros:
     if not api_key: st.warning("Insira a API Key.")
     else:
         if st.session_state.erros_ia: st.success("📂 Inquérito recuperado.")
-        if st.button("🔄 Iniciar Caça às Bruxas (Contradições)"):
+        if st.button("🔄 Iniciar Caça às Bruxas"):
             with st.spinner("O Inquisidor afia suas lâminas..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
@@ -533,73 +498,47 @@ with tab_genealogia:
             st.graphviz_chart(st.session_state.arvore_dot)
         except Exception as e: st.error(f"Erro visual: {e}")
 
-# === ABA 8: CONEXÕES (V31 - REDE ESPAÇADA E LEGÍVEL) ===
+# === ABA 8: CONEXÕES (CORRIGIDA) ===
 with tab_conexoes:
     st.header("🕸️ Teia de Influência")
     if not api_key: st.warning("Insira a API Key.")
     else:
         if st.session_state.grafo_dot: st.success("📂 Rede carregada.")
-        if st.button("🔄 Mapear Teia Política (Refinado)"):
-            with st.spinner("Organizando a geopolítica..."):
+        if st.button("🔄 Mapear Teia Política"):
+            with st.spinner("Desenhando a teia..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    
-                    # --- PROMPT DE ALTA ENGENHARIA VISUAL ---
                     prompt_grafo = f"""
-                    Atue como um Designer de Informação.
-                    TAREFA: Criar um Grafo de Conexões (Graphviz DOT) extremamente limpo e legível para fundo escuro.
+                    Atue como um Designer. Crie um GRAFO DE CONEXÕES (DOT) para MODO ESCURO.
                     
-                    REGRAS VISUAIS OBRIGATÓRIAS:
-                    1. CONFIGURAÇÃO DO GRAFO:
-                       graph [
-                           bgcolor="#0e1117";
-                           layout=fdp;        // Layout de força (melhor para redes)
-                           overlap=false;     // Impede sobreposição
-                           splines=curved;    // Linhas curvas elegantes
-                           K=2.5;             // AUMENTA O ESPAÇAMENTO (Muito importante)
-                           sep="+25,25";      // Margem entre nós
-                       ];
+                    graph [bgcolor="#0e1117", layout=fdp, K=2.5, overlap=false, splines=curved];
+                    node [shape=rect, style="filled,rounded", fillcolor="#1f1f1f", color="#e6c200", fontcolor="#ffea00", penwidth=2, fontname="Arial", fontsize=14];
+                    edge [penwidth=1.2, fontname="Arial", fontsize=11];
                     
-                    2. ESTILO DOS NÓS (NODES):
-                       // Reinos/Grupos: Caixa sólida, borda dourada, fonte grande
-                       node [shape=rect, style="filled,rounded", fillcolor="#1f1f1f", color="#e6c200", fontcolor="#ffea00", penwidth=2, fontname="Arial-Bold", fontsize=14, margin=0.3];
-                       // Personagens/Deuses: Círculo, fundo cinza claro, fonte preta (para contraste)
-                       
-                    3. ESTILO DAS ARESTAS (EDGES):
-                       edge [penwidth=1.2, fontname="Arial", fontsize=11, arrowsize=0.8];
-                    
-                    4. RELAÇÕES E CORES (Use label para descrever):
-                       - Aliado/Amigo -> color="#00ff00", fontcolor="#00ff00" (Verde Neon)
-                       - Inimigo/Rival -> color="#ff3333", fontcolor="#ff3333" (Vermelho Neon)
-                       - Influência/Neutro -> color="#e6c200", fontcolor="#e6c200" (Dourado)
-                    
-                    TAREFA LÓGICA:
-                    Leia o Lore abaixo. Identifique as entidades e relações.
-                    Se um Personagem pertence a um Reino, pinte o personagem de branco (fillcolor=white, fontcolor=black, color=black).
+                    - Aliado: color="#00ff00" fontcolor="#00ff00"
+                    - Inimigo: color="#ff3333" fontcolor="#ff3333"
+                    - Neutro: color="#e6c200" fontcolor="#e6c200"
                     
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    
-                    RESPONDA APENAS COM O CÓDIGO DOT ENTRE CRASES.
+                    RESPONDA APENAS CODIGO DOT.
                     """
-                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     res = model.generate_content(prompt_grafo)
                     dot_code = extrair_dot(res.text)
                     if dot_code:
                         st.session_state.grafo_dot = dot_code
                         salvar_cache_analise("grafo_dot", dot_code)
-                        st.success("Teia gerada com novo layout!")
+                        st.success("Feito!")
                         st.rerun()
                     else: st.error("Erro no DOT.")
                 except Exception as e: st.error(f"Erro: {e}")
 
     if st.session_state.grafo_dot:
         try:
-            # Renderiza com engine fdp (se disponível) ou padrão
             st.graphviz_chart(st.session_state.grafo_dot, use_container_width=True)
         except Exception as e: st.error(f"Erro visual: {e}")
 
-# === ABA 9: TIMELINE VISUAL (LIMPA E INTERATIVA) ===
+# === ABA 9: TIMELINE VISUAL ===
 with tab_timeline:
     st.header("📉 A Marcha do Tempo")
     if not api_key: st.warning("Insira a API Key.")
@@ -629,18 +568,10 @@ with tab_timeline:
         try:
             df = pd.DataFrame(st.session_state.timeline_dados)
             if not df.empty:
-                # AQUI ESTÁ A MUDANÇA PRINCIPAL PARA LIMPAR O GRÁFICO
                 fig = px.scatter(
-                    df, 
-                    x="ano_numerico", 
-                    y="grupo", 
-                    # REMOVIDO O text="evento" QUE SUJAVA A TELA
-                    hover_name="data_exibicao", # Título do Tooltip
-                    hover_data={"ano_numerico": False, "grupo": False, "evento": True}, # Mostra o texto só no mouse
-                    color="grupo", 
-                    title="Linha do Tempo (Passe o mouse para ler)", 
-                    height=600,
-                    size_max=15 # Bolinhas maiores
+                    df, x="ano_numerico", y="grupo", hover_name="data_exibicao", 
+                    hover_data={"ano_numerico": False, "grupo": False, "evento": True}, 
+                    color="grupo", title="Linha do Tempo (Passe o mouse)", height=600, size_max=15
                 )
                 fig.update_traces(marker=dict(size=14, line=dict(width=2, color='#e6c200')))
                 fig.update_layout(
@@ -653,29 +584,17 @@ with tab_timeline:
 
 # === ABA 10: DASHBOARDS ===
 with tab_dashboard:
-    st.header("📊 Sala de Guerra: Poder & Influência")
-    
+    st.header("📊 Sala de Guerra")
     if not api_key: st.warning("Insira a API Key.")
     else:
         if st.session_state.dashboard_dados: st.success("📂 Dados táticos recuperados.")
-        
         if st.button("🔄 Calcular Balança de Poder"):
-            with st.spinner("O Estrategista está avaliando os exércitos e economias..."):
+            with st.spinner("O Estrategista está avaliando..."):
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                     prompt_dash = f"""
-                    Atue como um Estrategista Militar e Político.
-                    Leia o lore abaixo e identifique as 6 a 10 maiores FACÇÕES ou POVOS (ex: Elfos, Orcs, Imperio X).
-                    Para cada um, atribua uma nota de 0 a 100 nestes quesitos:
-                    - Militar
-                    - Magia
-                    - Economia
-                    - Influencia
-                    SAÍDA JSON OBRIGATÓRIA:
-                    [
-                        {{ "Entidade": "Império Aiglano", "Militar": 90, "Magia": 20, "Economia": 80, "Influencia": 70 }},
-                        ...
-                    ]
+                    Estrategista Militar. Avalie 6-10 facções. Notas 0-100: Militar, Magia, Economia, Influencia.
+                    SAÍDA JSON: [{{ "Entidade": "...", "Militar": 90, ... }}]
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     """
                     model = genai.GenerativeModel(modelo_escolhido)
@@ -684,51 +603,139 @@ with tab_dashboard:
                     if dados_dash:
                         st.session_state.dashboard_dados = dados_dash
                         salvar_cache_analise("dashboard_dados", dados_dash)
-                        st.success("Análise estratégica concluída!")
+                        st.success("Feito!")
                         st.rerun()
-                    else: st.error("Erro ao extrair dados JSON.")
+                    else: st.error("Erro JSON.")
                 except Exception as e: st.error(f"Erro: {e}")
 
     if st.session_state.dashboard_dados:
         df_dash = pd.DataFrame(st.session_state.dashboard_dados)
-        st.subheader("⚔️ Comparativo de Forças")
-        fig_bar = px.bar(
-            df_dash, x="Entidade", y=["Militar", "Magia", "Economia", "Influencia"], barmode="group",
-            title="Militar vs Magia vs Economia", color_discrete_sequence=["#e63946", "#a8dadc", "#e6c200", "#457b9d"]
-        )
+        st.subheader("⚔️ Comparativo")
+        fig_bar = px.bar(df_dash, x="Entidade", y=["Militar", "Magia", "Economia", "Influencia"], barmode="group", title="Atributos", color_discrete_sequence=["#e63946", "#a8dadc", "#e6c200", "#457b9d"])
         fig_bar.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", plot_bgcolor="#161b22", legend_title_text='Atributo')
         st.plotly_chart(fig_bar, use_container_width=True)
         
         c1, c2 = st.columns(2)
         with c1:
-            st.subheader("🌍 Dominância Global (Influência)")
-            fig_pie = px.pie(df_dash, values='Influencia', names='Entidade', title='Participação no Poder Político', hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
+            st.subheader("🌍 Influência Global")
+            fig_pie = px.pie(df_dash, values='Influencia', names='Entidade', title='Poder Político', hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
             fig_pie.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117")
             st.plotly_chart(fig_pie, use_container_width=True)
         with c2:
-            st.subheader("🕸️ Perfil das Facções")
-            entidade_selecionada = st.selectbox("Ver Detalhes De:", df_dash["Entidade"].unique())
-            dados_entidade = df_dash[df_dash["Entidade"] == entidade_selecionada].iloc[0]
-            categorias_radar = ["Militar", "Magia", "Economia", "Influencia"]
-            valores_radar = [dados_entidade[c] for c in categorias_radar]
-            fig_radar = px.line_polar(r=valores_radar, theta=categorias_radar, line_close=True, range_r=[0, 100])
-            fig_radar.update_traces(fill='toself', line_color='#e6c200')
-            fig_radar.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", polar=dict(bgcolor="#161b22", radialaxis=dict(visible=True, range=[0, 100])))
-            st.plotly_chart(fig_radar, use_container_width=True)
+            st.subheader("🕸️ Radar")
+            entidade = st.selectbox("Facção:", df_dash["Entidade"].unique())
+            dados = df_dash[df_dash["Entidade"] == entidade].iloc[0]
+            cats = ["Militar", "Magia", "Economia", "Influencia"]
+            vals = [dados[c] for c in cats]
+            fig_r = px.line_polar(r=vals, theta=cats, line_close=True, range_r=[0, 100])
+            fig_r.update_traces(fill='toself', line_color='#e6c200')
+            fig_r.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", polar=dict(bgcolor="#161b22", radialaxis=dict(visible=True, range=[0, 100])))
+            st.plotly_chart(fig_r, use_container_width=True)
 
-# === ABA 11: MAPA ===
+# === ABA 11: MAPA INTERATIVO ===
 with tab_mapa:
-    st.header("🗺️ Cartografia")
+    st.header("🗺️ Cartografia Oficial")
+    
+    # Toggle de Modos
+    modo_mapa = st.radio("Modo:", ["👁️ Explorar (Zoom/Hover)", "📍 Editar (Adicionar Pins)"], horizontal=True)
+    
     mapa_b64 = carregar_mapa()
-    if mapa_b64: st.image(base64.b64decode(mapa_b64), caption="Mapa Mundi", use_container_width=True)
-    else: st.info("Sem mapa.")
+    
+    if mapa_b64:
+        # Decodifica imagem para usar em ambas as libs
+        imagem_bytes = base64.b64decode(mapa_b64)
+        imagem_pil = Image.open(io.BytesIO(imagem_bytes))
+        
+        if modo_mapa == "👁️ Explorar (Zoom/Hover)":
+            # MODO PLOTLY (Visualização Rica)
+            if st.session_state.mapa_pins:
+                # Cria DataFrame dos pins
+                df_pins = pd.DataFrame(st.session_state.mapa_pins)
+                
+                # Cria figura vazia mas com tamanho da imagem
+                fig = px.scatter(
+                    df_pins, 
+                    x="x", y="y", 
+                    hover_name="nome", 
+                    hover_data={"x":False, "y":False, "desc":True},
+                    title="Mapa Interativo"
+                )
+                
+                # Adiciona a imagem de fundo
+                fig.add_layout_image(
+                    dict(
+                        source=imagem_pil,
+                        xref="x", yref="y",
+                        x=0, y=0,
+                        sizex=imagem_pil.width, sizey=imagem_pil.height,
+                        sizing="stretch",
+                        opacity=1,
+                        layer="below"
+                    )
+                )
+                
+                # Ajusta eixos para corresponder aos pixels da imagem
+                fig.update_xaxes(visible=False, range=[0, imagem_pil.width])
+                fig.update_yaxes(visible=False, range=[imagem_pil.height, 0]) # Inverte Y para bater com coordenadas de imagem
+                
+                # Estilo dos pontos
+                fig.update_traces(marker=dict(size=15, color='#e6c200', symbol='circle', line=dict(width=2, color='black')))
+                
+                fig.update_layout(
+                    width=imagem_pil.width, height=imagem_pil.height,
+                    margin=dict(l=0, r=0, t=0, b=0),
+                    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+                    hoverlabel=dict(bgcolor="#161b22", font_size=14, font_family="Lato")
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.image(imagem_pil, caption="Sem pins ainda. Mude para 'Editar' para adicionar.", use_container_width=True)
+
+        else:
+            # MODO EDITOR (Clique para adicionar)
+            st.info("Clique na imagem para marcar um local.")
+            
+            # Componente de clique
+            coords = streamlit_image_coordinates(imagem_pil, key="click_map")
+            
+            if coords:
+                st.write(f"📍 Ponto selecionado: {coords['x']}, {coords['y']}")
+                
+                with st.form("form_pin"):
+                    nome_pin = st.text_input("Nome do Local")
+                    desc_pin = st.text_area("Descrição / Lore")
+                    
+                    # Sugestão inteligente: Vincular a uma categoria existente
+                    vinculo = st.selectbox("Vincular a Texto Existente (Opcional):", ["Nenhum"] + CATEGORIAS)
+                    
+                    if st.form_submit_button("💾 Salvar Pin"):
+                        if vinculo != "Nenhum":
+                            # Se vinculou, pega o resumo do texto
+                            texto_vinc = lore_data.get(vinculo, "")[:200] + "..."
+                            if not desc_pin: desc_pin = texto_vinc # Preenche se estiver vazio
+                        
+                        novo_pin = {"x": coords['x'], "y": coords['y'], "nome": nome_pin, "desc": desc_pin}
+                        
+                        # Adiciona na lista e salva
+                        pins_atuais = st.session_state.mapa_pins
+                        pins_atuais.append(novo_pin)
+                        salvar_pins(pins_atuais)
+                        st.session_state.mapa_pins = pins_atuais # Atualiza estado
+                        st.success("Pin adicionado!")
+                        st.rerun()
+
+    else:
+        st.info("Sem mapa.")
+
     st.markdown("---")
-    arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
-    if arquivo_mapa:
-        if st.button("📤 Enviar para a Nuvem"):
-            try:
-                b64_string = comprimir_imagem(arquivo_mapa)
-                salvar_mapa_b64(b64_string)
-                st.success("Salvo!")
-                st.rerun()
-            except Exception as e: st.error(str(e))
+    with st.expander("Carregar Novo Mapa (Substitui o atual)"):
+        arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
+        if arquivo_mapa:
+            if st.button("📤 Enviar"):
+                try:
+                    b64 = comprimir_imagem(arquivo_mapa)
+                    salvar_mapa_b64(b64)
+                    st.success("Salvo!")
+                    st.rerun()
+                except Exception as e: st.error(str(e))
