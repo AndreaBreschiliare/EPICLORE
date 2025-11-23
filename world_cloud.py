@@ -916,15 +916,16 @@ with tab_dashboard:
             st.plotly_chart(fig_r, use_container_width=True)
 
 # ==============================================================================
-# ABA 9: MAPA INTERATIVO (COM PIN 📍 GRANDE)
+# ABA 9: MAPA INTERATIVO (COM PINS 📍 E EXCLUSÃO)
 # ==============================================================================
 with tab_mapa:
     st.header("🗺️ Cartografia Oficial")
     
-    # Controles
+    # Controles Superiores
     col_ctrl, col_upload = st.columns([3, 1])
     with col_ctrl:
-        modo_mapa = st.radio("Modo:", ["👁️ Explorar (Zoom/Hover)", "📍 Editar (Adicionar Pins)"], horizontal=True)
+        # Alterna entre ver o mapa bonito ou clicar para editar
+        modo_mapa = st.radio("Modo:", ["👁️ Explorar (Zoom/Hover)", "📍 Editar (Adicionar/Remover)"], horizontal=True)
     
     mapa_b64 = carregar_mapa()
     
@@ -933,118 +934,127 @@ with tab_mapa:
         img_bytes = base64.b64decode(mapa_b64)
         img_pil = Image.open(io.BytesIO(img_bytes))
         
-        # --- MODO EXPLORADOR (MOSTRA OS PINS) ---
+        # --- MODO EXPLORADOR (Visualização com Zoom) ---
         if modo_mapa == "👁️ Explorar (Zoom/Hover)":
             if st.session_state.mapa_pins:
                 df_pins = pd.DataFrame(st.session_state.mapa_pins)
                 
-                # Cria o gráfico base
+                # Cria o gráfico
                 fig = px.scatter(
                     df_pins, 
-                    x="x", 
-                    y="y", 
+                    x="x", y="y", 
                     hover_name="nome", 
-                    hover_data={"x":False, "y":False, "desc":True}, # Mostra descrição no hover
+                    hover_data={"x":False, "y":False, "desc":True}, 
                     title="Mapa Interativo"
                 )
                 
-                # --- AQUI ESTÁ A MUDANÇA PARA O EMOJI 📍 ---
+                # Configura o Pin como Emoji Grande 📍
                 fig.update_traces(
-                    mode="text",          # Muda de 'markers' (bolinha) para 'text'
-                    text="📍",            # Define o símbolo como o emoji
-                    textfont_size=35,     # Tamanho do Pin (Aumente se quiser maior)
-                    textposition="top center", # O texto fica centralizado no ponto
+                    mode="text",          
+                    text="📍",            
+                    textfont_size=35,     
+                    textposition="top center", 
                     hoverlabel=dict(bgcolor="#0e1117", bordercolor="#e6c200", font_size=14, font_family="Lato")
                 )
                 
-                # Adiciona a imagem de fundo
+                # Imagem de fundo
                 fig.add_layout_image(
                     dict(
-                        source=img_pil, 
-                        xref="x", yref="y", 
-                        x=0, y=0, 
-                        sizex=img_pil.width, 
-                        sizey=img_pil.height, 
-                        sizing="stretch", 
-                        opacity=1, 
-                        layer="below"
+                        source=img_pil, xref="x", yref="y", x=0, y=0, 
+                        sizex=img_pil.width, sizey=img_pil.height, 
+                        sizing="stretch", opacity=1, layer="below"
                     )
                 )
                 
-                # Configurações de eixos e layout (Remove grades e números)
+                # Ajustes visuais (remove eixos)
                 fig.update_xaxes(visible=False, range=[0, img_pil.width])
-                fig.update_yaxes(visible=False, range=[img_pil.height, 0]) # Inverte Y para bater com coordenadas de imagem
-                
+                fig.update_yaxes(visible=False, range=[img_pil.height, 0]) 
                 fig.update_layout(
-                    width=img_pil.width, 
-                    height=img_pil.height, 
+                    width=img_pil.width, height=img_pil.height, 
                     margin=dict(l=0, r=0, t=0, b=0), 
-                    paper_bgcolor="#0e1117", 
-                    plot_bgcolor="#0e1117",
-                    dragmode="pan" # Permite arrastar o mapa
+                    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+                    dragmode="pan"
                 )
-                
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.image(img_pil, caption="Mapa sem pins cadastrados.", use_container_width=True)
         
-        # --- MODO EDITOR (CRIA PINS) ---
+        # --- MODO EDITOR (Adicionar e Remover) ---
         else:
-            st.info("📍 Clique em qualquer lugar do mapa para adicionar um Ponto de Interesse.")
+            st.info("📍 Clique no mapa para criar um ponto. Use a lista abaixo para remover.")
             
-            # Componente que captura o clique X/Y
+            # Captura o clique
             coords = streamlit_image_coordinates(img_pil, key="click_map")
             
+            # 1. FORMULÁRIO DE ADICIONAR
             if coords:
-                st.markdown(f"**Coordenadas Selecionadas:** X={coords['x']}, Y={coords['y']}")
+                st.markdown(f"**Ponto Selecionado:** X={coords['x']}, Y={coords['y']}")
                 with st.form("pin_form"):
                     st.subheader("📌 Novo Local")
-                    nome_pin = st.text_input("Nome do Local (ex: Torre Negra)")
-                    desc_pin = st.text_area("Descrição Curta")
+                    nome_pin = st.text_input("Nome do Local")
+                    desc_pin = st.text_area("Descrição")
+                    vinculo = st.selectbox("Vincular a Texto (Opcional):", ["Nenhum"] + CATEGORIAS)
                     
-                    # Opção de puxar texto existente
-                    vinculo = st.selectbox("Vincular a Texto do Lore (Opcional):", ["Nenhum"] + CATEGORIAS)
-                    
-                    if st.form_submit_button("💾 Salvar Pin no Mapa"):
-                        # Se tiver vinculo, puxa o começo do texto
+                    if st.form_submit_button("💾 Salvar Pin"):
                         if vinculo != "Nenhum":
                             txt_completo = lore_data.get(vinculo, "")
                             resumo = txt_completo[:150] + "..." if len(txt_completo) > 150 else txt_completo
-                            if not desc_pin: 
-                                desc_pin = resumo
+                            if not desc_pin: desc_pin = resumo
                         
-                        novo_pin = {
-                            "x": coords['x'], 
-                            "y": coords['y'], 
-                            "nome": nome_pin, 
-                            "desc": desc_pin
-                        }
+                        novo_pin = {"x": coords['x'], "y": coords['y'], "nome": nome_pin, "desc": desc_pin}
                         
-                        # Salva na lista local e no banco
                         pins = st.session_state.mapa_pins
                         pins.append(novo_pin)
-                        salvar_pins(pins)
+                        salvar_pins(pins) # Salva no Banco
                         st.session_state.mapa_pins = pins
-                        
-                        st.success(f"📍 {nome_pin} fixado no mapa!")
+                        st.success("Pin criado!")
                         st.rerun()
-    else:
-        st.warning("⚠️ Nenhum mapa carregado no sistema.")
 
-    # --- UPLOAD DE MAPA (RODAPÉ) ---
+            st.divider()
+            
+            # 2. LISTA DE GERENCIAMENTO (APAGAR PINS)
+            with st.expander("🗑️ Gerenciar Pins Existentes (Excluir)", expanded=True):
+                if not st.session_state.mapa_pins:
+                    st.caption("Nenhum pin para apagar.")
+                else:
+                    # Cria uma tabela visual simples
+                    st.markdown("### Lista de Locais")
+                    for i, pin in enumerate(st.session_state.mapa_pins):
+                        c_nome, c_coords, c_btn = st.columns([3, 2, 1])
+                        
+                        with c_nome:
+                            st.write(f"**{i+1}. {pin['nome']}**")
+                        with c_coords:
+                            st.caption(f"X: {pin['x']} | Y: {pin['y']}")
+                        with c_btn:
+                            # Botão de Apagar
+                            if st.button("🗑️", key=f"del_pin_{i}", help=f"Apagar {pin['nome']}"):
+                                # Remove da lista
+                                lista_atual = st.session_state.mapa_pins
+                                removido = lista_atual.pop(i)
+                                
+                                # Atualiza Banco e Session
+                                salvar_pins(lista_atual)
+                                st.session_state.mapa_pins = lista_atual
+                                
+                                st.toast(f"Local '{removido['nome']}' removido!", icon="🗑️")
+                                st.rerun()
+    else:
+        st.warning("⚠️ Nenhum mapa carregado.")
+
+    # --- UPLOAD NO RODAPÉ ---
     st.markdown("---")
-    with st.expander("🗺️ Configurações de Mapa (Upload)", expanded=False):
-        st.warning("Cuidado: Fazer upload de um novo mapa pode desalinhar os pins existentes se o tamanho for diferente.")
-        arquivo_mapa = st.file_uploader("Enviar Nova Imagem de Mapa", type=["jpg", "jpeg", "png", "webp"])
+    with st.expander("🗺️ Trocar Imagem do Mapa"):
+        arquivo_mapa = st.file_uploader("Upload Imagem", type=["jpg", "png", "webp"])
         if arquivo_mapa:
-            if st.button("📤 Substituir Mapa Oficial"):
+            if st.button("📤 Substituir Mapa"):
                 try:
-                    with st.spinner("Comprimindo e enviando para os arquivos..."):
-                        b64 = comprimir_imagem(arquivo_mapa)
-                        salvar_mapa_b64(b64)
-                        st.success("Novo mapa carregado com sucesso!")
-                        st.rerun()
-                except Exception as e: st.error(f"Erro no upload: {e}")
+                    b64 = comprimir_imagem(arquivo_mapa)
+                    salvar_mapa_b64(b64)
+                    st.success("Mapa atualizado!")
+                    st.rerun()
+                except Exception as e: st.error(f"Erro: {e}")
+                    
 # ==============================================================================
 # ABA 10: NPCs (VERSÃO FINAL - BOTÃO REMOVER FOTO + REGRAS)
 # ==============================================================================
