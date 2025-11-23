@@ -19,7 +19,7 @@ import pytz
 import urllib.parse
 
 # ==============================================================================
-# 1. CONFIGURAÇÃO DA PÁGINA E ESTILO VISUAL
+# 1. CONFIGURAÇÃO DA PÁGINA
 # ==============================================================================
 st.set_page_config(
     page_title="World Architect Pro", 
@@ -28,13 +28,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ==============================================================================
+# 2. ESTILO VISUAL (CSS - GRIMÓRIO DARK)
+# ==============================================================================
 def aplicar_estilo_visual():
     st.markdown("""
     <style>
-        /* Importação de Fontes: Cinzel (Medieval) e Lato (Leitura) */
+        /* Fontes */
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
         
-        /* --- GERAL --- */
+        /* Geral */
         .stApp {
             background-color: #0e1117;
             background-image: radial-gradient(circle at 50% 0, #1c2331, #0e1117);
@@ -42,7 +45,7 @@ def aplicar_estilo_visual():
             font-family: 'Lato', sans-serif;
         }
         
-        /* --- TÍTULOS --- */
+        /* Títulos */
         h1, h2, h3, h4, h5, h6 {
             font-family: 'Cinzel', serif;
             color: #e6c200 !important;
@@ -50,18 +53,17 @@ def aplicar_estilo_visual():
             font-weight: 700;
         }
         
-        /* --- BARRA LATERAL --- */
+        /* Sidebar */
         [data-testid="stSidebar"] {
             background-color: #11141a;
             border-right: 1px solid #30363d;
         }
         
-        /* --- INPUTS --- */
+        /* Inputs */
         .stTextArea textarea, .stTextInput input, .stSelectbox div[data-baseweb="select"] {
             background-color: #161b22 !important;
             color: #e6e6e6 !important;
             border: 1px solid #30363d !important;
-            font-family: 'Lato', sans-serif;
             border-radius: 8px;
         }
         .stTextArea textarea:focus, .stTextInput input:focus {
@@ -69,7 +71,7 @@ def aplicar_estilo_visual():
             box-shadow: 0 0 8px rgba(230, 194, 0, 0.3);
         }
         
-        /* --- BOTÕES --- */
+        /* Botões */
         .stButton > button {
             background: linear-gradient(180deg, #2e2e2e 0%, #1a1a1a 100%);
             color: #e6c200 !important;
@@ -77,124 +79,58 @@ def aplicar_estilo_visual():
             font-family: 'Cinzel', serif;
             font-weight: bold;
             border-radius: 6px;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
             width: 100%;
+            transition: all 0.3s ease;
         }
         .stButton > button:hover {
             background: linear-gradient(180deg, #e6c200 0%, #b39700 100%);
             color: #0e1117 !important;
-            box-shadow: 0 0 15px rgba(230, 194, 0, 0.6);
-            transform: translateY(-2px);
             border-color: #fff !important;
+            box-shadow: 0 0 15px rgba(230, 194, 0, 0.6);
         }
         
-        /* --- TOAST --- */
-        div[data-testid="stToast"] {
-            background-color: #161b22;
-            border: 1px solid #e6c200;
-            color: #e6c200;
-            font-family: 'Cinzel', serif;
-        }
-        
-        /* --- ABAS --- */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-            border-bottom: 1px solid #30363d;
-        }
-        .stTabs [data-baseweb="tab"] {
-            background-color: transparent;
-            border-radius: 4px 4px 0 0;
-            color: #8b949e;
-            font-family: 'Cinzel', serif;
-        }
-        .stTabs [aria-selected="true"] {
-            background-color: #161b22;
-            color: #e6c200;
-            border: 1px solid #e6c200;
-            border-bottom: none;
-        }
-
-        /* --- CARDS DE NPC --- */
+        /* Cards NPC */
         .npc-card {
             background-color: #1f2937;
             border: 1px solid #e6c200;
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             display: flex;
-            gap: 20px;
+            gap: 15px;
             align-items: flex-start;
-        }
-        .npc-img-container {
-            flex-shrink: 0;
-        }
-        .npc-avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 8px;
-            object-fit: cover;
-            border: 2px solid #e6c200;
             transition: transform 0.2s;
-            cursor: pointer;
         }
-        .npc-avatar:hover {
-            transform: scale(1.05);
+        .npc-card:hover { transform: translateY(-2px); }
+        .npc-avatar {
+            width: 100px; height: 100px; border-radius: 8px;
+            object-fit: cover; border: 2px solid #e6c200;
         }
-        .npc-content {
-            flex-grow: 1;
-        }
+        .npc-content { flex-grow: 1; }
         .npc-header {
-            font-family: 'Cinzel', serif;
-            font-size: 1.4em;
-            color: #e6c200;
-            border-bottom: 1px solid #444;
-            padding-bottom: 8px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-family: 'Cinzel', serif; font-size: 1.3em; color: #e6c200;
+            border-bottom: 1px solid #444; margin-bottom: 5px;
+            display: flex; justify-content: space-between;
         }
-        .npc-sub {
-            font-size: 0.7em;
-            color: #aaa;
-            font-family: 'Lato';
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-left: 10px;
-        }
-        .npc-body {
-            font-size: 0.95em;
-            color: #ddd;
-            line-height: 1.6;
-        }
-        .npc-label {
-            color: #e6c200;
-            font-weight: bold;
-            font-size: 0.9em;
-            margin-right: 5px;
-        }
-        .npc-lore {
-            margin-top: 10px;
-            font-style: italic;
-            color: #bbb;
-            background: rgba(0,0,0,0.2);
-            padding: 10px;
-            border-radius: 6px;
-            border-left: 3px solid #e6c200;
-        }
+        .npc-sub { font-size: 0.8em; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+        .npc-body { font-size: 0.95em; color: #ddd; line-height: 1.5; }
+        .npc-label { color: #e6c200; font-weight: bold; margin-right: 5px; }
+        .npc-lore { margin-top: 8px; font-style: italic; color: #bbb; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 5px; }
+
+        /* Tabs */
+        .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid #30363d; }
+        .stTabs [data-baseweb="tab"] { background-color: transparent; color: #8b949e; font-family: 'Cinzel', serif; }
+        .stTabs [aria-selected="true"] { background-color: #161b22; color: #e6c200; border: 1px solid #e6c200; border-bottom: none; }
     </style>
     """, unsafe_allow_html=True)
 
 aplicar_estilo_visual()
 
 # ==============================================================================
-# 2. DADOS E CONSTANTES DO RPG (ATUALIZADO)
+# 3. DADOS E REGRAS DE NEGÓCIO (LÓGICA RPG)
 # ==============================================================================
 
-# Listas de Lore (Texto)
 CATEGORIAS = [
     "Absencia - Caos", "Radiancia - Ordem", "Warp", "Os 4 Cavaleiros",
     "Facções", "Epic! Aetherius", "Resumo Primeira Era", "Resumo Segunda Era", 
@@ -205,72 +141,65 @@ CATEGORIAS = [
     "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
 ]
 
-# Estrutura de Classes e Caminhos (ATUALIZADA COM NOVAS CLASSES)
-CAMINHOS_RPG = {
-    "Sabio": [
-        "Necromante", "Clérigo", "Druida", "Magus", "Dançarino das Sombras Caster", 
-        "Shaman / Xamã", "Granadeiro", "Lâmina Arcana", "Arqueiro Arcano", "Engenheiro de Artilharia",
-        "Valsharess" # Adicionado para Har'oloth
-    ],
-    "Guerreiro": [
-        "Arqueiro", "Caçador", "Combatente", "Defensor", "Paladino", 
-        "Aklat'tur", "Bárbaro", "Monge", "Samurai", "Mutante",
-        "Boat Makers (Wood Worker)" # Adicionado para Björska
-    ],
-    "Ladino": [
-        "Malandro Arcano", "Caçador de Tesouros", "Assassino", "Esgrimista", 
-        "Ladrao", "Espiao", "Vivisseccionista", "Bardo", "Dançarino das Sombras", "Caçador de demônios",
-        "Trilha-Curta (Domestic Worker)" # Adicionado para Polkinea
-    ]
+# --- LOGICA DE RAÇA VS CULTURA ---
+# Culturas Cosmopolitas (Aceitam todas as raças)
+CULTURAS_IMPERIAIS = ["Aiglana", "Povos do Leste"]
+
+# Culturas Raciais (Travam a raça)
+MAPA_CULTURA_RACA = {
+    "Har'oloth": ["Drow"],
+    "Björska": ["Humano", "Outro"], 
+    "Alüriel": ["Elfo"],
+    "Badûran": ["Anão"],
+    "Gulthrak": ["Orc"],
+    "Polkinea": ["Polski", "Pequilho"]
 }
 
-# Culturas e Raças
-CULTURAS = [
-    "Aiglana", "Har'oloth", "Povos do Leste", "Björska", 
-    "Alüriel", "Badûran", "Gulthrak", "Polkinea"
-]
+TODAS_RACAS = ["Humano", "Elfo", "Anão", "Orc", "Drow", "Polski", "Pequilho", "Outro"]
 
-RACAS = ["Anão", "Drow", "Elfo", "Orc", "Humano", "Polski"]
+# --- LOGICA DE CLASSES ---
+# Classes Base (Disponíveis para todos)
+CLASSES_BASE = {
+    "Sabio": ["Necromante", "Clérigo", "Druida", "Magus", "Granadeiro", "Lâmina Arcana"],
+    "Guerreiro": ["Arqueiro", "Caçador", "Combatente", "Defensor", "Paladino", "Bárbaro", "Mutante"],
+    "Ladino": ["Malandro Arcano", "Caçador de Tesouros", "Assassino", "Esgrimista", "Ladrao", "Espiao", "Vivisseccionista", "Bardo"]
+}
 
-RELIGIOES = [
-    "Veneratio", "Eluith'orth", "Kai", "Halleuad", 
-    "Lórё", "Bokk Bharaz", "Ushkr'ar", "Céticos"
-]
+# Classes Exclusivas (Adicionadas apenas à cultura correta)
+CLASSES_EXCLUSIVAS = {
+    "Gulthrak": {"Sabio": ["Shaman / Xamã"], "Guerreiro": ["Aklat'tur"]},
+    "Har'oloth": {"Sabio": ["Dançarino das Sombras Caster"], "Ladino": ["Dançarino das Sombras", "Valsharess"]},
+    "Badûran": {"Sabio": ["Engenheiro de Artilharia"], "Guerreiro": ["Engenheiro de Artilharia"]},
+    "Alüriel": {"Sabio": ["Arqueiro Arcano"], "Guerreiro": ["Arqueiro Arcano"]},
+    "Povos do Leste": {"Guerreiro": ["Monge", "Samurai"]},
+    "Polkinea": {"Ladino": ["Trilha-Curta (Domestic Worker)"]},
+    "Björska": {"Guerreiro": ["Boat Makers (Wood Worker)"]}
+}
+# Nota: Aigla (Império Aiglano) tem acesso a tudo que não seja exclusivo dos outros.
+
+RELIGIOES = ["Veneratio", "Eluith'orth", "Kai", "Halleuad", "Lórё", "Bokk Bharaz", "Ushkr'ar", "Céticos"]
 
 # ==============================================================================
-# 3. INICIALIZAÇÃO DE ESTADO (SESSION STATE)
+# 4. INICIALIZAÇÃO DE ESTADO
 # ==============================================================================
-if "sugestoes_ia" not in st.session_state:
-    st.session_state.sugestoes_ia = {}
-if "erros_ia" not in st.session_state:
-    st.session_state.erros_ia = {}
-if "resumo_erros" not in st.session_state:
-    st.session_state.resumo_erros = ""
-if "auditoria_dados" not in st.session_state:
-    st.session_state.auditoria_dados = []
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "glossario" not in st.session_state:
-    st.session_state.glossario = {}
-if "timeline_dados" not in st.session_state:
-    st.session_state.timeline_dados = []
-if "dashboard_dados" not in st.session_state:
-    st.session_state.dashboard_dados = []
-if "mapa_pins" not in st.session_state:
-    st.session_state.mapa_pins = []
-if "npcs" not in st.session_state:
-    st.session_state.npcs = []
+if "sugestoes_ia" not in st.session_state: st.session_state.sugestoes_ia = {}
+if "erros_ia" not in st.session_state: st.session_state.erros_ia = {}
+if "resumo_erros" not in st.session_state: st.session_state.resumo_erros = ""
+if "auditoria_dados" not in st.session_state: st.session_state.auditoria_dados = []
+if "messages" not in st.session_state: st.session_state.messages = []
+if "glossario" not in st.session_state: st.session_state.glossario = {}
+if "timeline_dados" not in st.session_state: st.session_state.timeline_dados = []
+if "dashboard_dados" not in st.session_state: st.session_state.dashboard_dados = []
+if "mapa_pins" not in st.session_state: st.session_state.mapa_pins = []
+if "npcs" not in st.session_state: st.session_state.npcs = []
     
-# Variáveis temporárias para NPC
-if "temp_npc_nome" not in st.session_state:
-    st.session_state.temp_npc_nome = ""
-if "temp_npc_img" not in st.session_state:
-    st.session_state.temp_npc_img = ""
-if "temp_npc_lore" not in st.session_state:
-    st.session_state.temp_npc_lore = ""
+# Variáveis temporárias NPC
+if "temp_npc_nome" not in st.session_state: st.session_state.temp_npc_nome = ""
+if "temp_npc_img" not in st.session_state: st.session_state.temp_npc_img = ""
+if "temp_npc_lore" not in st.session_state: st.session_state.temp_npc_lore = ""
 
 # ==============================================================================
-# 4. CONEXÃO COM O FIREBASE
+# 5. CONEXÃO FIREBASE
 # ==============================================================================
 if not firebase_admin._apps:
     try:
@@ -284,62 +213,38 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ==============================================================================
-# 5. FUNÇÕES AUXILIARES (LÓGICA)
+# 6. FUNÇÕES AUXILIARES
 # ==============================================================================
-
 def enviar_alerta_email(categoria_alterada):
-    """Envia notificação por e-mail quando algo é salvo."""
-    if "email" not in st.secrets:
-        return False
+    if "email" not in st.secrets: return False
     try:
-        smtp_server = "smtp.gmail.com"
-        smtp_port = 587
-        usuario = st.secrets["email"]["usuario"]
-        senha = st.secrets["email"]["senha"]
-        destinatario = st.secrets["email"]["destinatario"]
-
         msg = MIMEMultipart()
-        msg['From'] = usuario
-        msg['To'] = destinatario
+        msg['From'] = st.secrets["email"]["usuario"]
+        msg['To'] = st.secrets["email"]["destinatario"]
         msg['Subject'] = f"🔔 Alteração: {categoria_alterada}"
-        
         fuso = pytz.timezone('America/Sao_Paulo')
-        hora = datetime.now(fuso).strftime("%d/%m/%Y às %H:%M")
-        
-        texto = f"A seção '{categoria_alterada}' foi modificada e salva no banco de dados às {hora}."
-        msg.attach(MIMEText(texto, 'plain'))
-
-        server = smtplib.SMTP(smtp_server, smtp_port)
+        msg.attach(MIMEText(f"Alterado às {datetime.now(fuso).strftime('%H:%M')}.", 'plain'))
+        server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
-        server.login(usuario, senha)
+        server.login(st.secrets["email"]["usuario"], st.secrets["email"]["senha"])
         server.send_message(msg)
         server.quit()
         return True
-    except Exception as e:
-        print(f"Erro ao enviar email: {e}")
-        return False
+    except: return False
 
-# --- LORE ---
 def carregar_lore():
-    doc_ref = db.collection("mundos").document("lore_oficial")
-    doc = doc_ref.get()
-    if doc.exists:
-        return doc.to_dict()
-    else:
-        dados_iniciais = {cat: "" for cat in CATEGORIAS}
-        doc_ref.set(dados_iniciais)
-        return dados_iniciais
+    doc = db.collection("mundos").document("lore_oficial").get()
+    if doc.exists: return doc.to_dict()
+    return {cat: "" for cat in CATEGORIAS}
 
 def salvar_categoria(categoria, texto):
-    doc_ref = db.collection("mundos").document("lore_oficial")
-    doc_ref.set({categoria: texto}, merge=True)
+    db.collection("mundos").document("lore_oficial").set({categoria: texto}, merge=True)
     enviar_alerta_email(categoria)
 
-# --- NPCs ---
+# --- NPC ---
 def carregar_npcs():
     doc = db.collection("mundos").document("npc_database").get()
-    if doc.exists:
-        return doc.to_dict().get("lista", [])
+    if doc.exists: return doc.to_dict().get("lista", [])
     return []
 
 def salvar_npc(novo_npc):
@@ -409,7 +314,7 @@ def comprimir_imagem(arquivo_upload):
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 # ==============================================================================
-# 6. CARREGAMENTO INICIAL DE DADOS
+# 7. LOAD INICIAL DE DADOS
 # ==============================================================================
 caches_salvos = carregar_cache_analises()
 
@@ -441,13 +346,12 @@ except Exception as e:
     st.stop()
 
 # ==============================================================================
-# 7. BARRA LATERAL
+# 8. BARRA LATERAL
 # ==============================================================================
 with st.sidebar:
     st.title("🏰 World Architect")
-    
     st.header("⚙️ Configuração")
-    api_key = st.text_input("Chave do Oráculo (API Key)", type="password")
+    api_key = st.text_input("API Key (Gemini)", type="password")
     
     modelo_escolhido = "gemini-pro"
     if api_key:
@@ -465,7 +369,6 @@ with st.sidebar:
             st.error(f"Erro ao listar modelos: {e}")
 
     st.divider()
-    
     st.subheader("🔍 Busca Global")
     termo_busca = st.text_input("Procurar no Lore:", placeholder="Ex: Elfos")
     if termo_busca:
@@ -475,77 +378,43 @@ with st.sidebar:
                 resultados.append(cat)
         if resultados:
             st.success(f"Encontrado em {len(resultados)} seções:")
-            for r in resultados:
-                st.caption(f"• {r}")
-        else:
-            st.warning("Termo não encontrado.")
+            for r in resultados: st.caption(f"• {r}")
+        else: st.warning("Não encontrado.")
 
 # ==============================================================================
-# 8. ABAS
+# 9. ABAS
 # ==============================================================================
 abas = [
-    "✍️ Editor", 
-    "🧠 Chat", 
-    "⚖️ Auditoria", 
-    "💡 Sugestões", 
-    "⚡ Incoerências", 
-    "📚 Glossário", 
-    "📉 Timeline", 
-    "📊 Dashboards", 
-    "🗺️ Mapa",
-    "🎲 NPCs",
-    "📜 Quests"
+    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
+    "📚 Glossário", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa", "🎲 NPCs", "📜 Quests"
 ]
 
 tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_quests = st.tabs(abas)
 
-# ==============================================================================
-# ABA 1: EDITOR
-# ==============================================================================
+# === ABA 1: EDITOR ===
 with tab_editor:
-    col_titulo, col_filtro = st.columns([3, 1])
-    with col_titulo:
-        st.info("💾 As escrituras são salvas automaticamente nos arquivos etéreos (Nuvem).")
-    with col_filtro:
-        filtro_visualizacao = st.selectbox(
-            "📑 Índice (Filtrar):", 
-            ["Ver Tudo", "Geral/Cosmologia", "Timeline", "Povos"]
-        )
+    c1, c2 = st.columns([3,1])
+    with c1: st.info("Salvamento na nuvem + Notificação por E-mail.")
+    with c2: filtro = st.selectbox("Filtro Visual:", ["Ver Tudo", "Geral", "Timeline", "Povos"])
+    
+    for cat in CATEGORIAS:
+        visivel = True
+        if filtro == "Geral" and ("Timeline" in cat or "Povo" in cat): visivel = False
+        elif filtro == "Timeline" and "Timeline" not in cat: visivel = False
+        elif filtro == "Povos" and "Povo" not in cat: visivel = False
+        
+        if visivel:
+            st.markdown(f"### {cat}")
+            val = lore_data.get(cat, "")
+            novo = st.text_area(cat, val, height=500, label_visibility="collapsed", key=f"t_{cat}")
+            if st.button(f"💾 Salvar {cat}", key=f"b_{cat}"):
+                salvar_categoria(cat, novo)
+                st.toast("Salvo! E-mail enviado.", icon="📧")
+            st.divider()
 
-    def criar_secao_editor(titulo, filtro_chave):
-        if filtro_visualizacao != "Ver Tudo":
-            if filtro_visualizacao == "Geral/Cosmologia" and filtro_chave != "Geral": return
-            if filtro_visualizacao == "Timeline" and filtro_chave != "Timeline": return
-            if filtro_visualizacao == "Povos" and filtro_chave != "Povo": return
-
-        st.markdown(f"### {titulo}")
-        cols = st.columns(2)
-        idx = 0
-        for cat in CATEGORIAS:
-            mostrar = False
-            if filtro_chave == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
-            elif filtro_chave != "Geral" and filtro_chave in cat: mostrar = True
-            
-            if mostrar:
-                with cols[idx % 2]:
-                    val_atual = lore_data.get(cat, "")
-                    novo_val = st.text_area(cat, value=val_atual, height=500, key=f"txt_{cat}")
-                    
-                    if st.button(f"💾 Salvar {cat}", key=f"btn_{cat}"):
-                        salvar_categoria(cat, novo_val)
-                        st.toast(f"Alterações em '{cat}' salvas com sucesso! Email enviado.", icon="📧")
-                idx += 1
-        st.divider()
-
-    criar_secao_editor("📜 Documentos Gerais & Cosmologia", "Geral")
-    criar_secao_editor("⏳ Timeline", "Timeline")
-    criar_secao_editor("🏰 Povos", "Povo")
-
-# ==============================================================================
-# ABA 2: CHAT
-# ==============================================================================
+# === ABA 2: CHAT ===
 with tab_chat:
-    c1, c2 = st.columns([4, 1])
+    c1, c2 = st.columns([4,1])
     c1.header("🔮 Oráculo da Lore")
     if c2.button("🗑️ Limpar Chat"):
         st.session_state.messages = []
@@ -579,540 +448,261 @@ with tab_chat:
                     st.markdown(res.text)
                     st.session_state.messages.append({"role": "assistant", "content": res.text})
                     salvar_cache_analise("chat_history", st.session_state.messages)
-                except Exception as e:
-                    st.error(f"Erro na IA: {e}")
+                except Exception as e: st.error(f"Erro na IA: {e}")
 
-# ==============================================================================
-# ABA 3: AUDITORIA
-# ==============================================================================
+# === ABA 3: AUDITORIA ===
 with tab_aval:
-    st.header("⚖️ O Julgamento Final")
-    if not api_key:
-        st.warning("Insira a API Key.")
+    st.header("⚖️ Auditoria")
+    if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.auditoria_dados:
-            st.success("📂 Relatório recuperado da memória.")
-            
-        if st.button("🔄 Convocar Novo Julgamento (Modo Crítico)"):
-            with st.spinner("O Juiz está analisando os autos..."):
+        if st.session_state.auditoria_dados: st.success("Cache carregado.")
+        if st.button("🔄 Recalcular"):
+            with st.spinner("..."):
                 try:
-                    lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    prompt_auditoria = f"""
-                    VOCÊ É UM EDITOR LITERÁRIO SÊNIOR, CÍNICO E EXTREMAMENTE CRÍTICO.
-                    SUA MISSÃO: Analisar o worldbuilding e DESTRUIR qualquer incoerência.
-                    
-                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    
-                    AVALIE 10 PILARES (Nota 0-10): Coerência, História, Cultura, Política, Economia, Magia, Religião, Geografia, Conflitos, Singularidade.
-                    
-                    FORMATO JSON OBRIGATÓRIO:
-                    [
-                        {{
-                            "titulo": "1. Coerência Interna",
-                            "nota": 4,
-                            "analise": "Texto crítico e ácido.",
-                            "melhorias": "Sugestão prática."
-                        }},
-                        ...
-                    ]
-                    """
-                    model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt_auditoria)
-                    dados = extrair_json(res.text)
-                    if dados:
-                        st.session_state.auditoria_dados = dados
-                        salvar_cache_analise("auditoria", dados)
-                        st.rerun()
-                    else:
-                        st.error("Erro na resposta da IA.")
-                        st.write(res.text)
-                except Exception as e:
-                    st.error(f"Erro: {e}")
-        
-        if st.session_state.auditoria_dados:
-             for item in st.session_state.auditoria_dados:
-                with st.expander(f"{item['titulo']} - Nota {item['nota']}"):
-                    st.progress(item['nota']/10)
-                    st.info(f"**Análise:** {item['analise']}")
-                    st.warning(f"**Exigência:** {item['melhorias']}")
+                    res = genai.GenerativeModel(modelo_escolhido).generate_content(f"""Crítico Cínico. Analise: {json.dumps({k:v for k,v in lore_data.items() if v.strip()}, ensure_ascii=False)}. JSON: [{{ "titulo": "...", "nota": 8, "analise": "...", "melhorias": "..." }}]""").text
+                    d = extrair_json(res)
+                    if d: st.session_state.auditoria_dados = d; salvar_cache_analise("auditoria", d); st.rerun()
+                except Exception as e: st.error(str(e))
+        for i in st.session_state.auditoria_dados:
+            with st.expander(f"{i['titulo']} - Nota {i['nota']}"): st.progress(i['nota']/10); st.info(i['analise']); st.warning(i['melhorias'])
 
-# ==============================================================================
-# ABA 4: SUGESTÕES
-# ==============================================================================
+# === ABA 4: SUGESTÕES ===
 with tab_sugestao:
-    st.header("💡 A Musa Inspiradora")
-    if not api_key:
-        st.warning("Insira a API Key.")
+    st.header("💡 Ideias")
+    if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.sugestoes_ia:
-            st.success("📂 Inspirações recuperadas da memória.")
-            
-        if st.button("🔄 Pedir Novas Ideias (Tópicos Curtos)"):
-            with st.spinner("Sonhando com seu mundo..."):
+        if st.session_state.sugestoes_ia: st.success("Cache carregado.")
+        if st.button("🔄 Gerar"):
+            with st.spinner("..."):
                 try:
-                    lore_ativo = {k:v for k,v in lore_data.items()}
-                    prompt = f"""
-                    Atue como um Co-Autor Criativo.
-                    TAREFA: Para CADA categoria listada abaixo, escreva 3 a 5 TÓPICOS (Bullet Points) de ideias novas.
-                    LORE ATUAL: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    CATEGORIAS: {json.dumps(CATEGORIAS, ensure_ascii=False)}
-                    FORMATO JSON DE SAÍDA: {{ "Categoria": "• Ideia 1\\n• Ideia 2", ... }}
-                    """
-                    model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt)
-                    dados = extrair_json(res.text)
-                    if dados:
-                        st.session_state.sugestoes_ia = dados
-                        salvar_cache_analise("sugestoes", dados)
-                        st.rerun()
-                    else:
-                        st.error("Erro JSON.")
-                except Exception as e:
-                    st.error(f"Erro: {e}")
-    
-    def criar_secao_sugestao(titulo, filtro):
-        st.markdown(f"### {titulo}")
-        cols = st.columns(2)
-        idx = 0
-        for cat in CATEGORIAS:
-            mostrar = False
-            if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
-            elif filtro != "Geral" and filtro in cat: mostrar = True
-            if mostrar:
-                with cols[idx % 2]:
-                    sug = st.session_state.sugestoes_ia.get(cat, "Clique para gerar.")
-                    st.text_area(f"💡 {cat}", value=sug, height=250, disabled=True)
-                idx += 1
-        st.divider()
-        
+                    res = genai.GenerativeModel(modelo_escolhido).generate_content(f"""Co-Autor. Bullet Points 3-5. JSON: {{ "Categoria": "• ...", ... }}. LORE: {json.dumps({k:v for k,v in lore_data.items()}, ensure_ascii=False)}""").text
+                    d = extrair_json(res)
+                    if d: st.session_state.sugestoes_ia = d; salvar_cache_analise("sugestoes", d); st.rerun()
+                except Exception as e: st.error(str(e))
     if st.session_state.sugestoes_ia:
-        criar_secao_sugestao("Geral", "Geral")
-        criar_secao_sugestao("Timeline", "Timeline")
-        criar_secao_sugestao("Povos", "Povo")
+        for c in CATEGORIAS: st.text_area(f"💡 {c}", st.session_state.sugestoes_ia.get(c, ""), height=200, disabled=True)
 
-# ==============================================================================
-# ABA 5: INCOERÊNCIAS
-# ==============================================================================
+# === ABA 5: INCOERÊNCIAS ===
 with tab_erros:
-    st.header("⚡ O Inquisidor Lógico")
-    with st.expander("📘 Metodologia", expanded=False):
-        st.markdown("Cruzamento de dados N x N.")
-
-    if not api_key:
-        st.warning("Insira a API Key.")
+    st.header("⚡ Inquisidor")
+    if not api_key: st.warning("Insira a API Key.")
     else:
-        if st.session_state.erros_ia:
-            st.success("📂 Inquérito recuperado da memória.")
-            
-        if st.button("🔄 Iniciar Caça às Bruxas (Contradições)"):
-            with st.spinner("O Inquisidor afia suas lâminas..."):
+        if st.session_state.erros_ia: st.success("Cache carregado.")
+        if st.button("🔄 Rastrear"):
+            with st.spinner("..."):
                 try:
-                    lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    prompt_erros = f"""
-                    VOCÊ É UM INVESTIGADOR FORENSE DE LÓGICA.
-                    TAREFA: Cruze TODOS os dados. Se A contradiz B, aponte. Use Bullet Points.
-                    FORMATO JSON: 
-                    {{ 
-                        "resumo_geral": "Veredito ácido...", 
-                        "detalhes": {{ "Categoria": "• 🔴 ERRO CRÍTICO: ...", ... }} 
-                    }}
-                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    """
-                    model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt_erros)
-                    dados_json = extrair_json(res.text)
-                    if dados_json:
-                        st.session_state.resumo_erros = dados_json.get("resumo_geral", "")
-                        st.session_state.erros_ia = dados_json.get("detalhes", {})
-                        salvar_cache_analise("erros", st.session_state.erros_ia)
-                        salvar_cache_analise("resumo_erros", st.session_state.resumo_erros)
-                        st.rerun()
-                    else:
-                        st.write(res.text)
-                except Exception as e:
-                    st.error(f"Erro: {e}")
+                    res = genai.GenerativeModel(modelo_escolhido).generate_content(f"""Auditor Lógico. Ache erros. Bullet Points. JSON: {{ "resumo_geral": "...", "detalhes": {{ "Categoria": "• 🔴 ...", ... }} }}. LORE: {json.dumps({k:v for k,v in lore_data.items() if v.strip()}, ensure_ascii=False)}""").text
+                    d = extrair_json(res)
+                    if d: st.session_state.resumo_erros = d.get("resumo_geral",""); st.session_state.erros_ia = d.get("detalhes",{}); salvar_cache_analise("erros", st.session_state.erros_ia); salvar_cache_analise("resumo_erros", st.session_state.resumo_erros); st.rerun()
+                except Exception as e: st.error(str(e))
+    if st.session_state.resumo_erros: st.info(st.session_state.resumo_erros)
+    for c, err in st.session_state.erros_ia.items(): st.error(f"🚨 {c}:\n{err}")
 
-    if st.session_state.resumo_erros:
-        st.info(f"📝 **Veredito Implacável:**\n\n{st.session_state.resumo_erros}")
-
-    def criar_secao_erros(titulo, filtro):
-        st.markdown(f"### {titulo}")
-        cols = st.columns(2)
-        idx = 0
-        for cat in CATEGORIAS:
-            mostrar = False
-            if filtro == "Geral" and ("Timeline" not in cat and "Povo" not in cat): mostrar = True
-            elif filtro != "Geral" and filtro in cat: mostrar = True
-            if mostrar:
-                with cols[idx % 2]:
-                    val = lore_data.get(cat, "")
-                    st.text_area(f"📄 {cat}", value=val, height=150, disabled=True, key=f"view_{cat}")
-                    erro = st.session_state.erros_ia.get(cat, None)
-                    if erro:
-                        st.error(f"🚨 **PROBLEMAS:**\n\n{erro}")
-                    else:
-                        st.success("✅ Aprovado")
-                idx += 1
-        st.divider()
-        
-    if st.session_state.erros_ia:
-        criar_secao_erros("Geral", "Geral")
-        criar_secao_erros("Timeline", "Timeline")
-        criar_secao_erros("Povos", "Povo")
-
-# ==============================================================================
-# ABA 6: GLOSSÁRIO
-# ==============================================================================
+# === ABA 6: GLOSSÁRIO ===
 with tab_glossario:
-    st.header("📚 O Grande Arquivo")
-    if not api_key:
-        st.warning("Insira a API Key.")
+    st.header("📚 Glossário")
+    if not api_key: st.warning("Insira a API Key.")
     else:
-        c_btn, c_info = st.columns([1, 3])
-        with c_btn:
-            if st.button("🔄 Reescrever Dicionário"):
-                with st.spinner("Catalogando termos..."):
-                    try:
-                        lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                        prompt = f"""
-                        Bibliotecário. Extraia termos importantes (Nomes, Cidades, Magias). Definição curta.
-                        JSON: {{ "Termo": "Definição...", ... }}
-                        LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                        """
-                        model = genai.GenerativeModel(modelo_escolhido)
-                        res = model.generate_content(prompt)
-                        dados = extrair_json(res.text)
-                        if dados:
-                            st.session_state.glossario = dados
-                            salvar_cache_analise("glossario", dados)
-                            st.success("Feito!")
-                            st.rerun()
-                        else: st.error("Erro JSON")
-                    except Exception as e: st.error(f"Erro: {e}")
-        with c_info:
-            if st.session_state.glossario:
-                st.info(f"Verbetes Catalogados: {len(st.session_state.glossario)}")
-
-    st.divider()
-    c_leitor, c_termos = st.columns([2, 1])
-    with c_leitor:
-        txt_escolhido = st.selectbox("Ler Pergaminho:", CATEGORIAS)
+        if st.button("🔄 Atualizar"):
+            with st.spinner("..."):
+                try:
+                    res = genai.GenerativeModel(modelo_escolhido).generate_content(f"""Bibliotecário. Termos e definições. JSON: {{ "Termo": "Def...", ... }}. LORE: {json.dumps({k:v for k,v in lore_data.items() if v.strip()}, ensure_ascii=False)}""").text
+                    d = extrair_json(res)
+                    if d: st.session_state.glossario = d; salvar_cache_analise("glossario", d); st.rerun()
+                except Exception as e: st.error(str(e))
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        txt_escolhido = st.selectbox("Ler:", CATEGORIAS)
         conteudo = lore_data.get(txt_escolhido, "")
         st.text_area("Leitura:", value=conteudo, height=600, disabled=True)
-    with c_termos:
-        st.subheader("🔍 Notas de Rodapé")
+    with c2:
+        st.subheader("🔍 Termos")
         if st.session_state.glossario and conteudo:
             encontrados = [(t, d) for t, d in st.session_state.glossario.items() if t in conteudo]
             if encontrados:
                 for t, d in encontrados:
                     with st.expander(f"🔹 {t}"): st.write(d)
-            else:
-                st.info("Nenhum termo encontrado.")
+            else: st.info("Nenhum termo encontrado.")
 
-# ==============================================================================
-# ABA 7: TIMELINE VISUAL
-# ==============================================================================
+# === ABA 7: TIMELINE ===
 with tab_timeline:
-    st.header("📉 A Marcha do Tempo")
-    if not api_key:
-        st.warning("Insira a API Key.")
+    st.header("📉 Timeline")
+    if not api_key: st.warning("API Key necessária.")
     else:
-        if st.session_state.timeline_dados:
-            st.success("📂 Cronologia recuperada.")
-        if st.button("🔄 Gerar Gráfico Temporal"):
-            with st.spinner("Calculando eras..."):
+        if st.session_state.timeline_dados: st.success("Cache carregado.")
+        if st.button("🔄 Gerar"):
+            with st.spinner("..."):
                 try:
-                    lore_timelines = {k:v for k,v in lore_data.items() if "Timeline" in k and v.strip()}
-                    prompt_time = f"""
-                    Analise Timelines. Extraia eventos.
-                    SAIDA JSON: [{{ "ano_numerico": 100, "data_exibicao": "Ano 100", "evento": "Guerra X", "grupo": "Elfos" }}]
-                    LORE: {json.dumps(lore_timelines, ensure_ascii=False)}
-                    """
-                    model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt_time)
-                    dados_tl = extrair_json(res.text)
-                    if dados_tl:
-                        st.session_state.timeline_dados = dados_tl
-                        salvar_cache_analise("timeline_dados", dados_tl)
-                        st.success("Processado!")
-                        st.rerun()
-                    else: st.error("Erro JSON.")
+                    res = genai.GenerativeModel(modelo_escolhido).generate_content(f"""Analise Timelines. JSON: [{{ "ano_numerico": 100, "data_exibicao": "Ano 100", "evento": "...", "grupo": "..." }}]. LORE: {json.dumps({k:v for k,v in lore_data.items() if "Timeline" in k}, ensure_ascii=False)}""").text
+                    d = extrair_json(res)
+                    if d: st.session_state.timeline_dados = d; salvar_cache_analise("timeline_dados", d); st.rerun()
                 except Exception as e: st.error(str(e))
-
     if st.session_state.timeline_dados:
         try:
             df = pd.DataFrame(st.session_state.timeline_dados)
             if not df.empty:
-                fig = px.scatter(
-                    df, x="ano_numerico", y="grupo", 
-                    hover_name="data_exibicao", 
-                    hover_data={"ano_numerico": False, "grupo": False, "evento": True}, 
-                    color="grupo", title="Linha do Tempo (Passe o mouse)", height=600, size_max=15
-                )
-                fig.update_traces(marker=dict(size=14, line=dict(width=2, color='#e6c200')))
-                fig.update_layout(
-                    font_family="Lato", font_color="#d4d4d4", 
-                    title_font_family="Cinzel", title_font_color="#e6c200",
-                    paper_bgcolor="#0e1117", plot_bgcolor="#161b22", 
-                    xaxis=dict(gridcolor="#30363d"), yaxis=dict(gridcolor="#30363d")
-                )
+                fig = px.scatter(df, x="ano_numerico", y="grupo", hover_name="data_exibicao", hover_data={"ano_numerico": False, "grupo": False, "evento": True}, color="grupo", height=600)
+                fig.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", plot_bgcolor="#161b22")
                 st.plotly_chart(fig, use_container_width=True)
-            else: st.warning("Sem dados.")
-        except Exception as e: st.error(f"Erro gráfico: {e}")
+        except: pass
 
-# ==============================================================================
-# ABA 8: DASHBOARDS
-# ==============================================================================
+# === ABA 8: DASHBOARDS ===
 with tab_dashboard:
     st.header("📊 Sala de Guerra")
-    if not api_key:
-        st.warning("Insira a API Key.")
+    if not api_key: st.warning("API Key necessária.")
     else:
-        if st.session_state.dashboard_dados:
-            st.success("📂 Dados táticos recuperados.")
-        if st.button("🔄 Calcular Balança de Poder"):
-            with st.spinner("O Estrategista está avaliando..."):
-                try:
-                    lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
-                    prompt_dash = f"""
-                    Estrategista Militar. Avalie 6-10 facções. Dê notas 0-100: Militar, Magia, Economia, Influencia.
-                    SAÍDA JSON: [{{ "Entidade": "...", "Militar": 90, ... }}]
-                    LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
-                    """
-                    model = genai.GenerativeModel(modelo_escolhido)
-                    res = model.generate_content(prompt_dash)
-                    dados_dash = extrair_json(res.text)
-                    if dados_dash:
-                        st.session_state.dashboard_dados = dados_dash
-                        salvar_cache_analise("dashboard_dados", dados_dash)
-                        st.success("Feito!")
-                        st.rerun()
-                    else: st.error("Erro JSON.")
-                except Exception as e: st.error(f"Erro: {e}")
-
+        if st.session_state.dashboard_dados: st.success("Cache carregado.")
+        if st.button("🔄 Calcular"):
+            try:
+                res = genai.GenerativeModel(modelo_escolhido).generate_content(f"""Estrategista. JSON: [{{ "Entidade": "...", "Militar": 90, ... }}]. LORE: {json.dumps({k:v for k,v in lore_data.items() if v.strip()}, ensure_ascii=False)}""").text
+                d = extrair_json(res)
+                if d: st.session_state.dashboard_dados = d; salvar_cache_analise("dashboard_dados", d); st.rerun()
+            except Exception as e: st.error(f"Erro: {e}")
     if st.session_state.dashboard_dados:
-        df_dash = pd.DataFrame(st.session_state.dashboard_dados)
-        st.subheader("⚔️ Comparativo")
-        fig_bar = px.bar(df_dash, x="Entidade", y=["Militar", "Magia", "Economia", "Influencia"], barmode="group", title="Atributos", color_discrete_sequence=["#e63946", "#a8dadc", "#e6c200", "#457b9d"])
-        fig_bar.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", plot_bgcolor="#161b22")
-        st.plotly_chart(fig_bar, use_container_width=True)
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("🌍 Influência")
-            fig_pie = px.pie(df_dash, values='Influencia', names='Entidade', title='Poder Político', hole=0.4)
-            fig_pie.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117")
-            st.plotly_chart(fig_pie, use_container_width=True)
-        with c2:
-            st.subheader("🕸️ Radar")
-            entidade = st.selectbox("Facção:", df_dash["Entidade"].unique())
-            dados = df_dash[df_dash["Entidade"] == entidade].iloc[0]
-            cats = ["Militar", "Magia", "Economia", "Influencia"]
-            vals = [dados[c] for c in cats]
-            fig_r = px.line_polar(r=vals, theta=cats, line_close=True, range_r=[0, 100])
-            fig_r.update_traces(fill='toself', line_color='#e6c200')
-            fig_r.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", polar=dict(bgcolor="#161b22", radialaxis=dict(visible=True, range=[0, 100])))
-            st.plotly_chart(fig_r, use_container_width=True)
+        df = pd.DataFrame(st.session_state.dashboard_dados)
+        fig = px.bar(df, x="Entidade", y=["Militar", "Magia", "Economia", "Influencia"], barmode="group")
+        fig.update_layout(font_family="Lato", font_color="#d4d4d4", paper_bgcolor="#0e1117", plot_bgcolor="#161b22")
+        st.plotly_chart(fig, use_container_width=True)
 
-# ==============================================================================
-# ABA 9: MAPA INTERATIVO
-# ==============================================================================
+# === ABA 9: MAPA ===
 with tab_mapa:
-    st.header("🗺️ Cartografia Oficial")
-    modo_mapa = st.radio("Modo:", ["👁️ Explorar (Zoom/Hover)", "📍 Editar (Adicionar Pins)"], horizontal=True)
+    st.header("🗺️ Cartografia")
+    modo = st.radio("Modo:", ["👁️ Explorar", "📍 Editar"], horizontal=True)
     mapa_b64 = carregar_mapa()
-    
     if mapa_b64:
         img_bytes = base64.b64decode(mapa_b64)
         img_pil = Image.open(io.BytesIO(img_bytes))
-        if modo_mapa == "👁️ Explorar (Zoom/Hover)":
+        if modo == "👁️ Explorar":
             if st.session_state.mapa_pins:
                 df_pins = pd.DataFrame(st.session_state.mapa_pins)
                 fig = px.scatter(df_pins, x="x", y="y", hover_name="nome", hover_data={"x":False, "y":False, "desc":True}, title="Mapa Interativo")
                 fig.add_layout_image(dict(source=img_pil, xref="x", yref="y", x=0, y=0, sizex=img_pil.width, sizey=img_pil.height, sizing="stretch", opacity=1, layer="below"))
-                fig.update_xaxes(visible=False, range=[0, img_pil.width])
-                fig.update_yaxes(visible=False, range=[img_pil.height, 0])
-                fig.update_layout(width=img_pil.width, height=img_pil.height, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="#0e1117", plot_bgcolor="#0e1117")
+                fig.update_xaxes(visible=False, range=[0, img_pil.width]); fig.update_yaxes(visible=False, range=[img_pil.height, 0])
+                fig.update_layout(width=img_pil.width, height=img_pil.height, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor="#0e1117", plot_bgcolor="#0e1117")
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.image(img_pil, caption="Sem pins.", use_container_width=True)
         else:
-            st.info("Clique na imagem para marcar um local.")
-            coords = streamlit_image_coordinates(img_pil, key="click_map")
+            st.info("Clique na imagem.")
+            coords = streamlit_image_coordinates(img_pil, key="click")
             if coords:
                 with st.form("pin"):
-                    nome_pin = st.text_input("Nome do Local")
-                    desc_pin = st.text_area("Descrição")
-                    vinculo = st.selectbox("Vincular a Texto:", ["Nenhum"] + CATEGORIAS)
-                    if st.form_submit_button("💾 Salvar Pin"):
-                        if vinculo != "Nenhum":
-                            txt = lore_data.get(vinculo, "")[:200] + "..."
-                            if not desc_pin: desc_pin = txt
+                    nome = st.text_input("Nome")
+                    desc = st.text_area("Desc")
+                    if st.form_submit_button("Salvar"):
                         pins = st.session_state.mapa_pins
-                        pins.append({"x": coords['x'], "y": coords['y'], "nome": nome_pin, "desc": desc_pin})
-                        salvar_pins(pins)
-                        st.session_state.mapa_pins = pins
-                        st.success("Pin salvo!")
-                        st.rerun()
-    else:
-        st.info("Sem mapa.")
+                        pins.append({"x": coords['x'], "y": coords['y'], "nome": nome, "desc": desc})
+                        salvar_pins(pins); st.session_state.mapa_pins = pins; st.rerun()
+    else: st.info("Sem mapa.")
     st.markdown("---")
-    with st.expander("Carregar Novo Mapa"):
-        arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
-        if arquivo_mapa:
-            if st.button("📤 Enviar"):
-                try:
-                    b64 = comprimir_imagem(arquivo_mapa)
-                    salvar_mapa_b64(b64)
-                    st.success("Salvo!")
-                    st.rerun()
-                except Exception as e: st.error(str(e))
+    upl = st.file_uploader("Novo Mapa", type=["jpg", "jpeg", "png", "webp"])
+    if upl and st.button("📤 Enviar"):
+        try:
+            b64 = comprimir_imagem(upl)
+            salvar_mapa_b64(b64)
+            st.success("Salvo!"); st.rerun()
+        except Exception as e: st.error(str(e))
 
-# ==============================================================================
-# ABA 10: NPCs
-# ==============================================================================
+# === ABA 10: NPCs (ATUALIZADO COM REGRAS RÍGIDAS) ===
 with tab_npc:
     st.header("🎲 Banco de NPCs")
     c_criar, c_lista = st.columns([1, 1.5])
     
     with c_criar:
         st.subheader("🛠️ Criar NPC")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            caminho_sel = st.selectbox("Caminho", list(CAMINHOS_RPG.keys()))
-            raca_sel = st.selectbox("Raça", RACAS)
-            religiao_sel = st.selectbox("Religião", RELIGIOES)
-        with col_b:
-            classe_sel = st.selectbox("Classe", CAMINHOS_RPG[caminho_sel])
-            cultura_sel = st.selectbox("Cultura", CULTURAS)
-            idade_inp = st.text_input("Idade")
-            align_inp = st.selectbox("Alinhamento", ["Leal Bom", "Neutro", "Caótico Mau", "Indefinido"])
+        
+        # 1. CULTURA (Define a Raça)
+        cultura = st.selectbox("Cultura de Origem:", list(CULTURAS) + CULTURAS_IMPERIAIS)
+        
+        # 2. RAÇA (Filtro por Cultura)
+        racas_disp = []
+        if cultura in CULTURAS_IMPERIAIS: racas_disp = TODAS_RACAS
+        elif cultura in MAPA_CULTURA_RACA: racas_disp = MAPA_CULTURA_RACA[cultura]
+        else: racas_disp = TODAS_RACAS
+        raca = st.selectbox("Raça:", racas_disp)
+        
+        # 3. CLASSES (Filtro por Cultura e Caminho)
+        caminho = st.selectbox("Caminho:", list(CAMINHOS_RPG.keys()))
+        classes_disp = CAMINHOS_RPG[caminho].copy() # Começa com o básico
+        
+        if cultura in CLASSES_EXCLUSIVAS:
+            extras = CLASSES_EXCLUSIVAS[cultura].get(caminho, [])
+            classes_disp.extend(extras)
+            
+        classe = st.selectbox("Classe:", classes_disp)
+        
+        # 4. GÊNERO E OUTROS
+        col_g1, col_g2 = st.columns(2)
+        with col_g1: genero = st.selectbox("Gênero:", ["Masculino", "Feminino", "Outro"])
+        with col_g2: religiao = st.selectbox("Religião:", RELIGIOES)
+        
+        idade = st.text_input("Idade")
+        align = st.selectbox("Alinhamento", ["Leal Bom", "Neutro", "Caótico Mau", "Indefinido"])
 
         st.markdown("---")
-        st.markdown("##### 2. Geradores")
-        col_gen1, col_gen2 = st.columns(2)
-        with col_gen1:
-            if st.button("🎲 Gerar Nome"):
+        
+        # GERADORES
+        c_gen1, c_gen2 = st.columns(2)
+        with c_gen1:
+            if st.button("🎲 Nome"):
                 if api_key:
                     try:
                         # Prompt ajustado: APENAS UM NOME
-                        p = f"Gere APENAS UM nome fantasia único (sem explicações) para um {raca_sel} {classe_sel} de {cultura_sel}. Apenas o nome."
+                        p = f"Gere APENAS UM nome fantasia ({genero}) para {raca} de {cultura}. Responda SOMENTE o nome."
                         st.session_state.temp_npc_nome = genai.GenerativeModel(modelo_escolhido).generate_content(p).text.strip()
                         st.rerun()
-                    except: st.error("Erro IA")
-                else: st.warning("Sem API Key")
+                    except Exception as e: st.error(f"Erro IA: {e}")
         
-        with col_gen2:
-            desc_vis = st.text_input("Aparência (ex: cicatriz):")
-            if st.button("📸 Retrato (200px)"):
+        with c_gen2:
+            desc = st.text_input("Visual:", placeholder="Cicatriz, olhos...")
+            if st.button("📸 Foto"):
                 if api_key:
                     try:
-                        p_art = f"Portrait of {raca_sel} {classe_sel}, {cultura_sel} style, {desc_vis}. Fantasy RPG character art, detailed face. Output ONLY english prompt."
-                        p_ing = genai.GenerativeModel(modelo_escolhido).generate_content(p_art).text
-                        # Link direto para a imagem gerada
-                        url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p_ing)}?width=200&height=200&nologo=true&model=flux"
+                        p_art = f"Portrait of {genero} {raca} {classe}, {cultura}, {desc}. Fantasy RPG art. Output ONLY english prompt."
+                        ing = genai.GenerativeModel(modelo_escolhido).generate_content(p_art).text
+                        url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(ing)}?width=200&height=200&nologo=true&model=flux"
                         st.session_state.temp_npc_img = url
                         st.rerun()
-                    except: st.error("Erro IA")
+                    except Exception as e: st.error(f"Erro IA: {e}")
 
-        nome_final = st.text_input("Nome Final", value=st.session_state.temp_npc_nome)
-        
-        # Imagem clicável
+        nome = st.text_input("Nome Final", value=st.session_state.temp_npc_nome)
         if st.session_state.temp_npc_img:
-            link_html = f'<a href="{st.session_state.temp_npc_img}" target="_blank"><img src="{st.session_state.temp_npc_img}" style="border-radius:8px; border: 2px solid #e6c200;"></a>'
-            st.markdown(link_html, unsafe_allow_html=True)
-            st.caption("Clique na imagem para baixar.")
+            st.markdown(f'<a href="{st.session_state.temp_npc_img}" target="_blank"><img src="{st.session_state.temp_npc_img}" style="border:2px solid #e6c200;border-radius:8px"></a>', unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.markdown("##### 3. História")
-        if st.button("✨ Escrever Lore Automática"):
+        if st.button("✨ Gerar Lore"):
             if api_key:
                 try:
-                    p_lore = f"""
-                    Crie um background curto (3 linhas) e um SEGREDO para este NPC.
-                    Dados: {raca_sel} {classe_sel}, {cultura_sel}, Seguidor de {religiao_sel}.
-                    """
+                    p_lore = f"Lore curta e segredo para {nome}, {genero} {raca} {classe} de {cultura}, {religiao}."
                     st.session_state.temp_npc_lore = genai.GenerativeModel(modelo_escolhido).generate_content(p_lore).text
                     st.rerun()
-                except: st.error("Erro IA")
+                except Exception as e: st.error(f"Erro IA: {e}")
         
-        lore_final = st.text_area("Lore/Segredo", value=st.session_state.temp_npc_lore)
-
-        # Botão Final
-        if st.button("💾 Salvar Ficha no Banco"):
-            novo = {
-                "nome": nome_final, "raca": raca_sel, "classe": classe_sel, 
-                "cultura": cultura_sel, "religiao": religiao_sel,
-                "idade": idade_inp, "align": align_inp, "segredo": lore_final,
-                "img_url": st.session_state.temp_npc_img
-            }
-            salvar_npc(novo)
-            st.session_state.npcs.append(novo)
-            st.session_state.temp_npc_nome = ""
-            st.session_state.temp_npc_img = ""
-            st.session_state.temp_npc_lore = ""
-            st.success("NPC Cadastrado!")
-            st.rerun()
+        lore_final = st.text_area("Lore", value=st.session_state.temp_npc_lore)
+        
+        if st.button("💾 Salvar NPC"):
+            novo = {"nome": nome, "raca": raca, "classe": classe, "cultura": cultura, "religiao": religiao, "genero": genero, "idade": idade, "align": align, "segredo": lore_final, "img_url": st.session_state.temp_npc_img}
+            salvar_npc(novo); st.session_state.npcs.append(novo); st.success("Salvo!"); st.rerun()
 
     with c_lista:
         st.subheader(f"📜 Catálogo ({len(st.session_state.npcs)})")
-        for i, npc in enumerate(st.session_state.npcs):
-            # Imagem clicável na lista
-            img_url = npc.get("img_url")
-            img_html = f'<a href="{img_url}" target="_blank"><img src="{img_url}" class="npc-avatar"></a>' if img_url else '<div class="npc-avatar" style="background:#333;display:flex;align-items:center;justify-content:center;font-size:2em">👤</div>'
-            
-            st.markdown(f"""
-            <div class="npc-card">
-                <div class="npc-img-container">{img_html}</div>
-                <div class="npc-content">
-                    <div class="npc-header">
-                        {npc['nome']}
-                        <span class="npc-sub">{npc['raca']} | {npc.get('classe','')}</span>
-                    </div>
-                    <div class="npc-sub" style="margin-bottom:8px; color:#e6c200">
-                        {npc.get('cultura','')} • {npc.get('religiao','')}
-                    </div>
-                    <div class="npc-body">
-                        <span class="npc-label">Idade:</span> {npc.get('idade','?')} | 
-                        <span class="npc-label">Align:</span> {npc.get('align','?')}
-                        <div class="npc-lore">{npc['segredo']}</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button(f"🗑️ Deletar {npc['nome']}", key=f"del_npc_{i}"):
-                deletar_npc_index(i)
-                st.session_state.npcs.pop(i)
-                st.rerun()
+        for i, n in enumerate(st.session_state.npcs):
+            img = f'<a href="{n.get("img_url")}" target="_blank"><img src="{n.get("img_url")}" class="npc-avatar"></a>' if n.get("img_url") else '<div class="npc-avatar" style="background:#333;display:flex;align-items:center;justify-content:center;font-size:2em">👤</div>'
+            st.markdown(f"""<div class="npc-card"><div class="npc-img-container">{img}</div><div class="npc-content"><div class="npc-header">{n['nome']} <span class="npc-sub">{n['raca']} | {n.get('classe','')}</span></div><div class="npc-sub" style="color:#e6c200">{n.get('cultura','')} • {n.get('religiao','')}</div><div class="npc-body">Idade: {n.get('idade','?')} | Align: {n.get('align','?')}</div><div class="npc-lore">{n['segredo']}</div></div></div>""", unsafe_allow_html=True)
+            if st.button(f"🗑️ {n['nome']}", key=f"del_{i}"): deletar_npc_index(i); st.session_state.npcs.pop(i); st.rerun()
 
-# ==============================================================================
-# ABA 11: QUESTS (SEPARADA)
-# ==============================================================================
+# === ABA 11: QUESTS ===
 with tab_quests:
     st.header("📜 Mural de Missões")
-    col_q1, col_q2 = st.columns([1, 3])
-    with col_q1:
-        st.info("Gera ganchos de aventura baseados no Lore global.")
+    c1, c2 = st.columns([1, 3])
+    with c1:
         if st.button("🎲 Gerar 5 Aventuras", type="primary"):
             if api_key:
-                with st.spinner("Ouvindo boatos nas tavernas..."):
+                with st.spinner("Ouvindo boatos..."):
                     try:
                         l = {k:v for k,v in lore_data.items() if v.strip()}
-                        p = f"""
-                        Atue como Mestre de RPG. Crie 5 Ganchos de Aventura (Quests) baseados no lore abaixo.
-                        Para cada quest:
-                        - Título
-                        - Sinopse
-                        - Quem Contrata
-                        - Recompensa
-                        - Twist
-                        LORE: {json.dumps(l, ensure_ascii=False)}
-                        """
+                        p = f"Mestre RPG. Crie 5 Ganchos de Aventura baseados no lore: {json.dumps(l, ensure_ascii=False)}"
                         st.session_state.quest_result = genai.GenerativeModel(modelo_escolhido).generate_content(p).text
                     except: st.error("Erro IA")
             else: st.warning("API Key necessária")
-            
-    with col_q2:
-        if "quest_result" in st.session_state:
-            st.markdown(st.session_state.quest_result)
+    with c2:
+        if "quest_result" in st.session_state: st.markdown(st.session_state.quest_result)
