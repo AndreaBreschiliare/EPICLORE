@@ -969,215 +969,239 @@ with tab_mapa:
                 except Exception as e: st.error(str(e))
 
 # ==============================================================================
-# 10. A FÁBRICA DE NPCS (LÓGICA COMPLETA E RÍGIDA)
+# ABA 10: NPCs (LAYOUT CLÁSSICO + REGRAS NOVAS)
 # ==============================================================================
 with tab_npc:
-    st.markdown("## 👥 Gerador de NPCs & Personagens")
-    st.info("Sistema de criação baseado nas regras estritas de cultura e exclusividade de classe.")
-
-    if not api_key:
-        st.error("⚠️ Configure a API Key na barra lateral para gerar a imagem e história.")
-    else:
-        col1, col2 = st.columns(2)
-
-        with col1:
-            # 1. GÊNERO (Removido Não-Binário conforme pedido)
-            genero_npc = st.radio("Gênero", ["Masculino", "Feminino"], horizontal=True)
-
-            # 2. CULTURAS (Lista Atualizada)
-            culturas_rpg = [
-                "Império de Aiglana", 
-                "Povo do Leste", 
-                "Gulthrak (Horda)", 
-                "Har'oloth (Subterrâneo)", 
-                "Badûran (Fortaleza)",
-                "Alüriel (Reino Élfico)",
-                "Björska (Nortenhos)",
-                "Polkinea/Pequenilho"
-            ]
-            cultura_npc = st.selectbox("Cultura / Facção", culturas_rpg)
-
-        # --- LÓGICA DE RAÇAS ---
-        # Regra: Impérios (Aiglana e Leste) = Todas as 6 raças.
-        # Regra: O resto = Cultura define a Raça (Travado).
+    st.header("🎲 Banco de NPCs")
+    
+    # Layout de 2 Colunas: Criação (Esquerda) e Lista (Direita)
+    c_criar, c_lista = st.columns([1, 1.5])
+    
+    with c_criar:
+        st.subheader("🛠️ Criar NPC")
         
+        # --- 1. DEFINIÇÃO BÁSICA ---
+        # Gênero (Sem Não-Binário)
+        genero_npc = st.radio("Gênero", ["Masculino", "Feminino"], horizontal=True)
+        
+        # Cultura (Lista Nova)
+        culturas_rpg = [
+            "Império de Aiglana", 
+            "Povo do Leste", 
+            "Gulthrak (Horda)", 
+            "Har'oloth (Subterrâneo)", 
+            "Badûran (Fortaleza)",
+            "Alüriel (Reino Élfico)",
+            "Björska (Nortenhos)",
+            "Polkinea/Pequenilho"
+        ]
+        cultura_sel = st.selectbox("Cultura", culturas_rpg)
+
+        # --- LÓGICA DE RAÇA (Travamento) ---
         todas_racas = ["Humano", "Elfo", "Anão", "Orc", "Drow", "Pequenilho"]
         
-        if cultura_npc in ["Império de Aiglana", "Povo do Leste"]:
-            lista_racas = todas_racas
-            msg_bloqueio = "🔓 Império Cosmopolita: Todas as raças permitidas."
-            travado = False
-        elif cultura_npc == "Gulthrak (Horda)":
-            lista_racas = ["Orc"]
-            msg_bloqueio = "🔒 Cultura restrita a Orcs."
-            travado = True
-        elif cultura_npc == "Har'oloth (Subterrâneo)":
-            lista_racas = ["Drow"]
-            msg_bloqueio = "🔒 Cultura restrita a Drows."
-            travado = True
-        elif cultura_npc == "Badûran (Fortaleza)":
-            lista_racas = ["Anão"]
-            msg_bloqueio = "🔒 Cultura restrita a Anões."
-            travado = True
-        elif cultura_npc == "Alüriel (Reino Élfico)":
-            lista_racas = ["Elfo"]
-            msg_bloqueio = "🔒 Cultura restrita a Elfos."
-            travado = True
-        elif cultura_npc == "Polkinea/Pequenilho":
-            lista_racas = ["Pequenilho"]
-            msg_bloqueio = "🔒 Cultura restrita a Pequenilhos."
-            travado = True
-        elif cultura_npc == "Björska (Nortenhos)":
-            lista_racas = ["Humano"] # Assumindo Humano para nórdicos/vikings
-            msg_bloqueio = "🔒 Cultura restrita a Humanos."
-            travado = True
-        else:
-            lista_racas = todas_racas
-            msg_bloqueio = None
-            travado = False
-
-        with col2:
-            raca_npc = st.selectbox("Raça", lista_racas, disabled=travado)
-            if msg_bloqueio:
-                st.caption(msg_bloqueio)
-
-        # --- LÓGICA DE CLASSES ---
+        # Dicionário de travamento: Cultura -> Raça Única
+        mapa_raca_travada = {
+            "Gulthrak (Horda)": ["Orc"],
+            "Har'oloth (Subterrâneo)": ["Drow"],
+            "Badûran (Fortaleza)": ["Anão"],
+            "Alüriel (Reino Élfico)": ["Elfo"],
+            "Björska (Nortenhos)": ["Humano"],
+            "Polkinea/Pequenilho": ["Pequenilho"]
+        }
         
-        # Lista Mestra de Todas as Classes
-        lista_mestra_classes = [
-            # --- SÁBIO ---
+        # Se for Império (Aiglana ou Leste), libera tudo. Se não, usa o mapa.
+        if cultura_sel in ["Império de Aiglana", "Povo do Leste"]:
+            lista_racas_disp = todas_racas
+            travado = False
+        else:
+            lista_racas_disp = mapa_raca_travada.get(cultura_sel, todas_racas)
+            travado = True
+
+        # Seleção de Raça (ABAIXO DO GÊNERO)
+        raca_sel = st.selectbox("Raça", lista_racas_disp, disabled=travado)
+
+        # --- LÓGICA DE CLASSES (Filtro de Exclusividade) ---
+        # Lista completa fornecida
+        lista_classes_total = [
+            # Sábio
             "Necromante", "Clérigo", "Druida", "Magus", "Dançarino das Sombras (Caster)", 
             "Xamã", "Granadeiro", "Lâmina Arcana", "Arqueiro Arcano", "Engenheiro de Artilharia", "Valsharess",
-            # --- GUERREIRO ---
+            # Guerreiro
             "Arqueiro", "Caçador", "Combatente", "Defensor", "Paladino", "Aklat'tur", 
             "Bárbaro", "Monge", "Samurai", "Mutante", "Construtor de Barcos",
-            # --- LADINO ---
+            # Ladino
             "Malandro Arcano", "Caçador de Tesouros", "Assassino", "Esgrimista", "Ladrão", 
             "Espião", "Vivisseccionista", "Bardo", "Dançarino das Sombras (Ladino)", 
             "Caçador de Demônios", "Trilha-Curta"
         ]
 
-        # Dicionário de Exclusividades (Quem é dono de quê)
-        # Se a classe está aqui, ELA SÓ APARECE para a cultura listada.
-        regras_exclusividade = {
+        # Quem é dono de qual classe?
+        regras_exclusivas = {
             "Xamã": ["Gulthrak (Horda)"],
             "Aklat'tur": ["Gulthrak (Horda)"],
-            
             "Dançarino das Sombras (Caster)": ["Har'oloth (Subterrâneo)"],
             "Dançarino das Sombras (Ladino)": ["Har'oloth (Subterrâneo)"],
             "Valsharess": ["Har'oloth (Subterrâneo)"],
-            
             "Engenheiro de Artilharia": ["Badûran (Fortaleza)"],
-            
             "Monge": ["Povo do Leste"],
             "Samurai": ["Povo do Leste"],
-            
             "Arqueiro Arcano": ["Alüriel (Reino Élfico)"],
-            
             "Trilha-Curta": ["Polkinea/Pequenilho"],
-            
             "Construtor de Barcos": ["Björska (Nortenhos)"]
         }
 
-        classes_disponiveis = []
-        
-        for classe in lista_mestra_classes:
-            # Verifica se a classe é exclusiva
-            donos = regras_exclusividade.get(classe)
-            
+        classes_filtradas = []
+        for cls in lista_classes_total:
+            donos = regras_exclusivas.get(cls)
             if donos:
-                # É exclusiva. Só adiciona se a cultura atual for um dos donos.
-                if cultura_npc in donos:
-                    classes_disponiveis.append(classe)
+                # Se a classe tem dono, só aparece se a cultura atual for o dono
+                if cultura_sel in donos:
+                    classes_filtradas.append(cls)
             else:
-                # Não é exclusiva (Classes comuns como Guerreiro, Mago, etc), adiciona para todos.
-                classes_disponiveis.append(classe)
+                # Classes sem dono aparecem para todos
+                classes_filtradas.append(cls)
         
-        # Ordenar para ficar bonito
-        classes_disponiveis.sort()
-
-        classe_npc = st.selectbox("Classe / Ocupação", classes_disponiveis)
-        st.markdown(f"*Total de classes disponíveis para {cultura_npc}: {len(classes_disponiveis)}*")
+        classes_filtradas.sort()
+        classe_sel = st.selectbox("Classe", classes_filtradas)
 
         st.markdown("---")
+        
+        # --- 2. GERADORES (NOME E IMAGEM) ---
+        col_gen1, col_gen2 = st.columns(2)
+        
+        with col_gen1:
+            # Botão Gerar Nome
+            if st.button("🎲 Gerar Nome"):
+                if api_key:
+                    try:
+                        model = genai.GenerativeModel(modelo_escolhido)
+                        p = f"""
+                        Gere APENAS UM nome fantasia (sem explicações) para:
+                        Gênero: {genero_npc}, Raça: {raca_sel}, Cultura: {cultura_sel}.
+                        Convenções: Orcs=Gutural, Drow=Apóstrofos, Leste=Asiático, Björska=Nórdico.
+                        """
+                        st.session_state.temp_npc_nome = model.generate_content(p).text.strip().replace("*","")
+                        st.rerun()
+                    except: st.error("Erro IA")
+                else: st.warning("Sem API Key")
+        
+        with col_gen2:
+            # Botão Gerar Imagem
+            desc_vis = st.text_input("Aparência Extra (ex: cicatriz):")
+            if st.button("📸 Retrato (200px)"):
+                try:
+                    # Tradução simples para prompt
+                    gender_en = "Male" if genero_npc == "Masculino" else "Female"
+                    race_en = raca_sel.split(" ")[0] # Pega a primeira palavra
+                    if "Drow" in raca_sel: race_en = "Drow Dark Elf"
+                    
+                    prompt_img = f"Portrait of {gender_en} {race_en} {classe_sel}, {cultura_sel} style, {desc_vis}, detailed face, dark fantasy rpg art"
+                    safe_prompt = urllib.parse.quote(prompt_img)
+                    
+                    # URL Pollinations com tamanho 200x200
+                    url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux"
+                    st.session_state.temp_npc_img = url
+                    st.rerun()
+                except: st.error("Erro Imagem")
 
-        # --- GERAÇÃO ---
-        if st.button("🎲 Gerar Personagem"):
-            with st.spinner(f"Criando {classe_npc} de {cultura_npc}..."):
+        # Campo Editável de Nome
+        nome_final = st.text_input("Nome Final", value=st.session_state.temp_npc_nome)
+        
+        # Exibição da Imagem (Se houver)
+        if st.session_state.temp_npc_img:
+            # HTML para tornar clicável
+            link_html = f'<a href="{st.session_state.temp_npc_img}" target="_blank"><img src="{st.session_state.temp_npc_img}" style="border-radius:8px; border: 2px solid #e6c200; width: 200px; height: 200px;"></a>'
+            st.markdown(link_html, unsafe_allow_html=True)
+            st.caption("Clique na imagem para baixar.")
+
+        st.markdown("---")
+        
+        # --- 3. HISTÓRIA (LORE) ---
+        st.markdown("##### História & Segredos")
+        if st.button("✨ Escrever Lore Automática"):
+            if api_key:
                 try:
                     model = genai.GenerativeModel(modelo_escolhido)
-
-                    # 1. Prompt de Nome
-                    prompt_nome = f"""
-                    Mestre de RPG. Gere APENAS UM nome para NPC (sem texto extra).
-                    Gênero: {genero_npc}. Raça: {raca_npc}. Cultura: {cultura_npc}. Classe: {classe_npc}.
-                    
-                    Convenções:
-                    - Gulthrak (Orcs): Nomes guturais (ex: Grok, Thar).
-                    - Har'oloth (Drow): Nomes élficos sombrios (ex: Vico'nia).
-                    - Leste/Samurai: Nomes estilo asiático/oriental.
-                    - Björska: Nomes nórdicos.
-                    - Aiglana: Nomes latinos/imperiais.
+                    p_lore = f"""
+                    Crie um background curto (3 linhas) e um SEGREDO para este NPC.
+                    Dados: {nome_final}, {genero_npc}, {raca_sel}, {classe_sel}, {cultura_sel}.
+                    Tom: Sombrio/Grimdark.
                     """
-                    try:
-                        res_nome = model.generate_content(prompt_nome)
-                        nome_final = res_nome.text.strip().replace('"', '').replace('*', '')
-                    except:
-                        nome_final = "Desconhecido"
+                    st.session_state.temp_npc_lore = model.generate_content(p_lore).text
+                    st.rerun()
+                except: st.error("Erro IA")
+        
+        # Campo Editável de Lore
+        lore_final = st.text_area("Editar Lore/Segredo", value=st.session_state.temp_npc_lore, height=100)
 
-                    # 2. Prompt de História (Lore)
-                    prompt_lore = f"""
-                    Escreva um parágrafo curto e denso (Grimdark) sobre {nome_final}.
-                    Detalhes: {genero_npc}, {raca_npc}, {classe_npc}, {cultura_npc}.
-                    Inclua um segredo ou vício.
-                    """
-                    try:
-                        res_lore = model.generate_content(prompt_lore)
-                        lore_final = res_lore.text.strip()
-                    except:
-                        lore_final = "Guerreiro sem passado."
+        # --- 4. BOTÃO SALVAR ---
+        st.markdown("---")
+        if st.button("💾 Salvar Ficha no Banco", type="primary"):
+            novo_npc = {
+                "nome": nome_final, 
+                "genero": genero_npc,
+                "raca": raca_sel, 
+                "classe": classe_sel, 
+                "cultura": cultura_sel, 
+                "segredo": lore_final,
+                "img_url": st.session_state.temp_npc_img,
+                "data_criacao": datetime.now().strftime("%Y-%m-%d %H:%M")
+            }
+            # Salva no Firebase
+            salvar_npc(novo_npc)
+            
+            # Atualiza Session State localmente
+            st.session_state.npcs.append(novo_npc)
+            
+            # Limpa os campos temporários
+            st.session_state.temp_npc_nome = ""
+            st.session_state.temp_npc_img = ""
+            st.session_state.temp_npc_lore = ""
+            
+            st.success(f"{nome_final} cadastrado com sucesso!")
+            st.rerun()
 
-                    # 3. Imagem (Pollinations)
-                    # Tradução manual simples para inglês para melhorar a imagem
-                    gender_en = "Male" if genero_npc == "Masculino" else "Female"
-                    
-                    race_en = raca_npc
-                    if "Drow" in raca_npc: race_en = "Drow Dark Elf"
-                    if "Pequenilho" in raca_npc: race_en = "Halfling"
-                    if "Anão" in raca_npc: race_en = "Dwarf"
-                    
-                    # Limpar nome da classe para URL (remover parenteses ex: (Caster))
-                    class_clean = classe_npc.split("(")[0].strip()
-                    
-                    prompt_img = f"fantasy portrait of a {gender_en} {race_en} {class_clean}, {cultura_npc} style, detailed face, dark fantasy art, grimdark, 8k resolution"
-                    safe_prompt = urllib.parse.quote(prompt_img)
-                    url_img = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=512&height=768&nologo=true"
-
-                    # --- RESULTADO ---
-                    c_i, c_t = st.columns([1, 2])
-                    with c_i:
-                        st.image(url_img, caption=nome_final)
-                    with c_t:
-                        st.subheader(f"⚔️ {nome_final}")
-                        st.caption(f"{raca_npc} | {classe_npc} | {cultura_npc}")
-                        st.write(lore_final)
-                        
-                        if st.button("💾 Salvar NPC"):
-                            npc_obj = {
-                                "nome": nome_final,
-                                "raca": raca_npc,
-                                "classe": classe_npc,
-                                "cultura": cultura_npc,
-                                "genero": genero_npc,
-                                "lore": lore_final,
-                                "img": url_img,
-                                "criado_em": datetime.now().isoformat()
-                            }
-                            salvar_npc(npc_obj)
-                            st.success("Salvo com sucesso!")
-
-                except Exception as e:
-                    st.error(f"Erro ao gerar: {e}")
+    # --- COLUNA DA DIREITA: LISTA DE NPCs ---
+    with c_lista:
+        st.subheader(f"📜 Catálogo ({len(st.session_state.npcs)})")
+        
+        # Inverte a lista para mostrar os mais recentes primeiro
+        for i, npc in enumerate(reversed(st.session_state.npcs)):
+            # Calcula o índice real (porque estamos invertendo o loop visualmente)
+            real_index = len(st.session_state.npcs) - 1 - i
+            
+            img_url = npc.get("img_url", "")
+            # HTML do Avatar
+            if img_url:
+                img_html = f'<a href="{img_url}" target="_blank"><img src="{img_url}" class="npc-avatar" style="width:80px; height:80px;"></a>'
+            else:
+                img_html = '<div class="npc-avatar" style="width:80px; height:80px; background:#333; display:flex; align-items:center; justify-content:center;">👤</div>'
+            
+            # Card Estilizado
+            st.markdown(f"""
+            <div class="npc-card" style="padding: 15px; gap: 15px;">
+                <div class="npc-img-container">{img_html}</div>
+                <div class="npc-content">
+                    <div class="npc-header" style="font-size: 1.2em;">
+                        {npc.get('nome', 'Sem Nome')}
+                    </div>
+                    <div class="npc-sub" style="color:#e6c200; margin-bottom:5px;">
+                        {npc.get('raca')} | {npc.get('classe')}
+                    </div>
+                    <div style="font-size: 0.8em; color: #aaa; margin-bottom: 8px;">
+                        {npc.get('cultura')} • {npc.get('genero')}
+                    </div>
+                    <div class="npc-lore" style="font-size: 0.85em;">{npc.get('segredo', '')}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Botão de Deletar
+            if st.button(f"🗑️ Apagar {npc.get('nome')}", key=f"del_{real_index}"):
+                deletar_npc_index(real_index) # Função do banco
+                st.session_state.npcs.pop(real_index) # Atualiza local
+                st.rerun()
 # ==============================================================================
 # ABA 11: QUESTS (SEPARADA)
 # ==============================================================================
