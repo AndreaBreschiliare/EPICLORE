@@ -970,7 +970,7 @@ with tab_mapa:
                 except Exception as e: st.error(str(e))
 
 # ==============================================================================
-# ABA 10: NPCs (VERSÃO FINAL - REGRAS RÍGIDAS + SEED ALEATÓRIA)
+# ABA 10: NPCs (VERSÃO FINAL - BOTÃO REMOVER FOTO + REGRAS)
 # ==============================================================================
 with tab_npc:
     st.header("🎲 Banco de NPCs")
@@ -1040,7 +1040,7 @@ with tab_npc:
             "Caçador de Demônios", "Trilha-Curta"
         ]
 
-        # Quem é dono de quê? (Classes que NÃO aparecem para os outros)
+        # Regras de quem possui qual classe
         regras_exclusivas = {
             "Xamã": ["Gulthrak (Horda)"],
             "Aklat'tur": ["Gulthrak (Horda)"],
@@ -1096,10 +1096,9 @@ with tab_npc:
             desc_vis = st.text_input("Aparência Extra (ex: cicatriz):")
             if st.button("📸 Retrato (200px)"):
                 try:
-                    # Tradução simples para o prompt de imagem
                     gender_en = "Male" if genero_npc == "Masculino" else "Female"
                     
-                    # Ajustes de tradução para melhorar a imagem
+                    # Ajustes de tradução
                     race_en = raca_sel.split(" ")[0] 
                     if "Drow" in raca_sel: race_en = "Drow Dark Elf"
                     if "Pequenilho" in raca_sel: race_en = "Halfling"
@@ -1108,10 +1107,9 @@ with tab_npc:
                     prompt_img = f"Portrait of {gender_en} {race_en} {classe_sel}, {cultura_sel} style, {desc_vis}, detailed face, dark fantasy rpg art"
                     safe_prompt = urllib.parse.quote(prompt_img)
                     
-                    # SEED ALEATÓRIA: Garante que a imagem mude sempre
+                    # Seed Aleatória para garantir nova imagem sempre
                     seed = random.randint(0, 999999)
                     
-                    # URL com tamanho 200x200 e Seed
                     url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux&seed={seed}"
                     st.session_state.temp_npc_img = url
                     st.rerun()
@@ -1121,12 +1119,24 @@ with tab_npc:
         # Campo Editável de Nome
         nome_final = st.text_input("Nome Final", value=st.session_state.temp_npc_nome)
         
-        # Exibição da Imagem (Se houver)
+        # --- EXIBIÇÃO DA IMAGEM COM BOTÃO DE REMOVER ---
         if st.session_state.temp_npc_img:
-            # HTML para tornar clicável e manter 200x200
-            link_html = f'<a href="{st.session_state.temp_npc_img}" target="_blank"><img src="{st.session_state.temp_npc_img}" style="border-radius:8px; border: 2px solid #e6c200; width: 200px; height: 200px; object-fit: cover;"></a>'
-            st.markdown(link_html, unsafe_allow_html=True)
-            st.caption("Clique na imagem para baixar.")
+            st.markdown("---")
+            col_img_show, col_img_btn = st.columns([1, 1])
+            
+            with col_img_show:
+                # HTML para imagem 200x200 com borda dourada
+                link_html = f'<a href="{st.session_state.temp_npc_img}" target="_blank"><img src="{st.session_state.temp_npc_img}" style="border-radius:8px; border: 2px solid #e6c200; width: 200px; height: 200px; object-fit: cover;"></a>'
+                st.markdown(link_html, unsafe_allow_html=True)
+                st.caption("Clique na imagem para baixar.")
+            
+            with col_img_btn:
+                st.write("") # Espaçamento vertical para alinhar
+                st.write("") 
+                st.warning("Não gostou?")
+                if st.button("❌ Remover Foto"):
+                    st.session_state.temp_npc_img = "" # Limpa a variável
+                    st.rerun() # Recarrega a tela limpa
 
         st.markdown("---")
         
@@ -1168,7 +1178,7 @@ with tab_npc:
             # Atualiza Session State localmente
             st.session_state.npcs.append(novo_npc)
             
-            # Limpa os campos temporários
+            # Limpa os campos temporários para o próximo NPC
             st.session_state.temp_npc_nome = ""
             st.session_state.temp_npc_img = ""
             st.session_state.temp_npc_lore = ""
