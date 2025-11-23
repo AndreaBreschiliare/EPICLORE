@@ -20,7 +20,7 @@ import pytz
 import urllib.parse
 
 # ==============================================================================
-# 1. CONFIGURAÇÃO DA PÁGINA E ESTILO VISUAL
+# 1. CONFIGURAÇÃO DA PÁGINA E ESTILO VISUAL (CSS)
 # ==============================================================================
 st.set_page_config(
     page_title="World Architect Pro", 
@@ -108,7 +108,7 @@ def aplicar_estilo_visual():
         .npc-avatar {
             width: 100px;
             height: 100px;
-            border-radius: 50%;
+            border-radius: 8px; /* Quadrado arredondado para retrato */
             object-fit: cover;
             border: 2px solid #e6c200;
         }
@@ -127,7 +127,7 @@ def aplicar_estilo_visual():
             align-items: center;
         }
         .npc-sub {
-            font-size: 0.6em;
+            font-size: 0.7em;
             color: #aaa;
             font-family: 'Lato';
             text-transform: uppercase;
@@ -186,7 +186,50 @@ def aplicar_estilo_visual():
 aplicar_estilo_visual()
 
 # ==============================================================================
-# 2. INICIALIZAÇÃO DE ESTADO (SESSION STATE)
+# 2. CONSTANTES E DADOS DE RPG
+# ==============================================================================
+
+# Categorias de Lore (Texto)
+CATEGORIAS = [
+    "Absencia - Caos", "Radiancia - Ordem", "Warp", "Os 4 Cavaleiros",
+    "Facções", "Epic! Aetherius", "Resumo Primeira Era", "Resumo Segunda Era", 
+    "Cosmogenese - Resumo", "Origem por Povos (Geral)",
+    "Timeline - Cataclisma", "Timeline - Badlands", "Timeline - Elfos", "Timeline - Drows", 
+    "Timeline - Anões", "Timeline - Orcs", "Timeline - Humanos", "Timeline - Pequilhos",
+    "Povo - Aiglana", "Povo - Haroloth", "Povo - Leste", "Povo - Bjorska", 
+    "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
+]
+
+# Dados para o Gerador de NPC
+CAMINHOS_RPG = {
+    "Sabio": [
+        "Necromante", "Clérigo", "Druida", "Magus", "Dançarino das Sombras Caster", 
+        "Shaman / Xamã", "Granadeiro", "Lâmina Arcana", "Arqueiro Arcano", "Engenheiro de Artilharia"
+    ],
+    "Guerreiro": [
+        "Arqueiro", "Caçador", "Combatente", "Defensor", "Paladino", 
+        "Aklat'tur", "Bárbaro", "Monge", "Samurai", "Mutante"
+    ],
+    "Ladino": [
+        "Malandro Arcano", "Caçador de Tesouros", "Assassino", "Esgrimista", 
+        "Ladrao", "Espiao", "Vivisseccionista", "Bardo", "Dançarino das Sombras", "Caçador de demônios"
+    ]
+}
+
+CULTURAS = [
+    "Aiglana", "Har'oloth", "Povos do Leste", "Björska", 
+    "Alüriel", "Badûran", "Gulthrak", "Polkinea"
+]
+
+RACAS = ["Anão", "Drow", "Elfo", "Orc", "Humano", "Polski"]
+
+RELIGIOES = [
+    "Veneratio", "Eluith'orth", "Kai", "Halleuad", 
+    "Lórё", "Bokk Bharaz", "Ushkr'ar", "Céticos"
+]
+
+# ==============================================================================
+# 3. INICIALIZAÇÃO DE ESTADO (SESSION STATE)
 # ==============================================================================
 if "sugestoes_ia" not in st.session_state:
     st.session_state.sugestoes_ia = {}
@@ -213,14 +256,16 @@ if "mapa_pins" not in st.session_state:
 if "npcs" not in st.session_state:
     st.session_state.npcs = []
     
-# Variáveis temporárias para criação de NPC
+# Variáveis temporárias para criação de NPC (para não perder dados ao recarregar)
 if "temp_npc_nome" not in st.session_state:
     st.session_state.temp_npc_nome = ""
 if "temp_npc_img" not in st.session_state:
     st.session_state.temp_npc_img = ""
+if "temp_npc_lore" not in st.session_state:
+    st.session_state.temp_npc_lore = ""
 
 # ==============================================================================
-# 3. CONEXÃO COM O BANCO DE DADOS (FIREBASE)
+# 4. CONEXÃO COM O BANCO DE DADOS (FIREBASE)
 # ==============================================================================
 if not firebase_admin._apps:
     try:
@@ -234,7 +279,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ==============================================================================
-# 4. FUNÇÕES AUXILIARES (LÓGICA DE NEGÓCIO)
+# 5. FUNÇÕES AUXILIARES (LÓGICA DE NEGÓCIO)
 # ==============================================================================
 
 def enviar_alerta_email(categoria_alterada):
@@ -376,19 +421,6 @@ def comprimir_imagem(arquivo_upload):
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 # ==============================================================================
-# 5. CATEGORIAS DE LORE
-# ==============================================================================
-CATEGORIAS = [
-    "Absencia - Caos", "Radiancia - Ordem", "Warp", "Os 4 Cavaleiros",
-    "Facções", "Epic! Aetherius", "Resumo Primeira Era", "Resumo Segunda Era", 
-    "Cosmogenese - Resumo", "Origem por Povos (Geral)",
-    "Timeline - Cataclisma", "Timeline - Badlands", "Timeline - Elfos", "Timeline - Drows", 
-    "Timeline - Anões", "Timeline - Orcs", "Timeline - Humanos", "Timeline - Pequilhos",
-    "Povo - Aiglana", "Povo - Haroloth", "Povo - Leste", "Povo - Bjorska", 
-    "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
-]
-
-# ==============================================================================
 # 6. CARREGAMENTO INICIAL (CACHE E BANCO)
 # ==============================================================================
 caches_salvos = carregar_cache_analises()
@@ -481,7 +513,7 @@ abas = [
     "📉 Timeline", 
     "📊 Dashboards", 
     "🗺️ Mapa",
-    "🎲 NPC & Quests" # Movido para o final
+    "🎲 NPC & Quests" # Aba movida para o final
 ]
 
 tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_genealogia, tab_conexoes, tab_timeline, tab_dashboard, tab_mapa, tab_npc = st.tabs(abas)
@@ -966,7 +998,7 @@ with tab_timeline:
                     lore_timelines = {k:v for k,v in lore_data.items() if "Timeline" in k and v.strip()}
                     prompt_time = f"""
                     Analise Timelines. Extraia eventos.
-                    SAIDA JSON: [{{ "ano_numerico": 100, "data_exibicao": "Ano 100", "evento": "Guerra X", "grupo": "Elfos" }}]
+                    SAIDA JSON: [{{ "ano_numerico": 100, "data_exibicao": "Ano 100", "evento": "...", "grupo": "..." }}]
                     LORE: {json.dumps(lore_timelines, ensure_ascii=False)}
                     """
                     model = genai.GenerativeModel(modelo_escolhido)
@@ -1018,8 +1050,8 @@ with tab_dashboard:
                 try:
                     lore_ativo = {k:v for k,v in lore_data.items() if v.strip()}
                     prompt_dash = f"""
-                    Estrategista Militar. Avalie 6-10 facções.
-                    Notas 0-100: Militar, Magia, Economia, Influencia.
+                    Atue como um Estrategista Militar.
+                    Leia o lore e identifique 6-10 facções. Dê notas 0-100: Militar, Magia, Economia, Influencia.
                     SAÍDA JSON: [{{ "Entidade": "...", "Militar": 90, ... }}]
                     LORE: {json.dumps(lore_ativo, ensure_ascii=False)}
                     """
@@ -1037,7 +1069,6 @@ with tab_dashboard:
     if st.session_state.dashboard_dados:
         df_dash = pd.DataFrame(st.session_state.dashboard_dados)
         
-        # Bar Chart
         st.subheader("⚔️ Comparativo")
         fig_bar = px.bar(
             df_dash, x="Entidade", y=["Militar", "Magia", "Economia", "Influencia"], 
@@ -1111,10 +1142,10 @@ with tab_mapa:
                         st.success("Pin salvo!")
                         st.rerun()
     else:
-        st.info("Sem mapa. Carregue um abaixo.")
+        st.info("Sem mapa.")
 
     st.markdown("---")
-    with st.expander("Carregar Novo Mapa (Substitui o atual)"):
+    with st.expander("Carregar Novo Mapa"):
         arquivo_mapa = st.file_uploader("Upload", type=["jpg", "jpeg", "png", "webp"])
         if arquivo_mapa:
             if st.button("📤 Enviar"):
@@ -1126,80 +1157,96 @@ with tab_mapa:
                 except Exception as e: st.error(str(e))
 
 # ==============================================================================
-# ABA 12: NPC & QUESTS (INTEGRADO)
+# ABA 12: NPC & QUESTS (FINAL)
 # ==============================================================================
 with tab_npc:
     st.header("🎲 Mestre dos Jogos")
     
-    # Layout: Coluna de Criação | Coluna de Lista
     c_criar, c_lista = st.columns([1, 1.5])
     
-    # --- CRIAÇÃO (ESQUERDA) ---
+    # --- COLUNA DA ESQUERDA: CRIAÇÃO ---
     with c_criar:
         st.subheader("🛠️ Forja de Personagens")
         
-        # Geradores
-        st.markdown("##### 1. Geradores Automáticos")
-        col_gen_1, col_gen_2 = st.columns(2)
+        st.markdown("##### 1. Definição")
+        col_a, col_b = st.columns(2)
         
-        with col_gen_1:
-            raca_gen = st.selectbox("Raça para Gerar:", ["Humano", "Elfo", "Anão", "Orc", "Drow", "Pequilho"], key="sel_raca_gen")
-            if st.button("🎲 Sugerir Nome"):
-                if api_key:
-                    try:
-                        prompt = f"Gere UM nome único de fantasia para um {raca_gen}. Apenas o nome, nada mais."
-                        nome_sug = genai.GenerativeModel(modelo_escolhido).generate_content(prompt).text.strip()
-                        st.session_state.temp_npc_nome = nome_sug
-                        st.success("Nome gerado!")
-                    except: st.error("Erro IA")
-                else: st.warning("Precisa API Key")
-
-        with col_gen_2:
-            desc_visual = st.text_input("Aparência (para foto):", placeholder="Ex: Orc xamã velho")
-            if st.button("📸 Gerar Foto"):
-                if api_key and desc_visual:
-                    try:
-                        # Melhora prompt
-                        p_art = f"Portrait of {desc_visual}, fantasy rpg style, detailed face, cinematic lighting. Output ONLY english prompt."
-                        p_ing = genai.GenerativeModel(modelo_escolhido).generate_content(p_art).text
-                        # Gera URL
-                        enc = urllib.parse.quote(p_ing)
-                        url = f"https://image.pollinations.ai/prompt/{enc}?width=512&height=512&nologo=true&model=flux"
-                        st.session_state.temp_npc_img = url
-                        st.success("Foto gerada!")
-                    except: st.error("Erro IA")
-                else: st.warning("Precisa API Key e Descrição")
+        with col_a:
+            caminho_sel = st.selectbox("Caminho", list(CAMINHOS_RPG.keys()))
+            raca_sel = st.selectbox("Raça", RACAS)
+            religiao_sel = st.selectbox("Religião", RELIGIOES)
+        
+        with col_b:
+            classe_sel = st.selectbox("Classe", CAMINHOS_RPG[caminho_sel])
+            cultura_sel = st.selectbox("Cultura", CULTURAS)
+            idade_inp = st.text_input("Idade")
+            align_inp = st.selectbox("Alinhamento", ["Leal Bom", "Neutro", "Caótico Mau", "Indefinido"])
 
         st.divider()
-
-        # Formulário
-        st.markdown("##### 2. Detalhes da Ficha")
+        st.markdown("##### 2. Geradores")
         
+        col_gen1, col_gen2 = st.columns(2)
+        with col_gen1:
+            if st.button("🎲 Gerar Nome"):
+                if api_key:
+                    try:
+                        p = f"Gere UM nome fantasia para um {raca_sel} {classe_sel} da cultura {cultura_sel}. Só o nome."
+                        st.session_state.temp_npc_nome = genai.GenerativeModel(modelo_escolhido).generate_content(p).text.strip()
+                        st.success("Nome criado!")
+                    except: st.error("Erro IA")
+                else: st.warning("Sem API Key")
+        
+        with col_gen2:
+            desc_vis = st.text_input("Aparência:", placeholder="Ex: Cicatriz no olho")
+            if st.button("📸 Retrato"):
+                if api_key:
+                    try:
+                        # Gera prompt em inglês
+                        p_art = f"Portrait of {raca_sel} {classe_sel}, {cultura_sel} style, {desc_vis}. Fantasy RPG character art, detailed face. Output ONLY english prompt."
+                        p_ing = genai.GenerativeModel(modelo_escolhido).generate_content(p_art).text
+                        # Gera imagem no Pollinations (200x200)
+                        url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p_ing)}?width=200&height=200&nologo=true&model=flux"
+                        st.session_state.temp_npc_img = url
+                        st.success("Foto criada!")
+                    except: st.error("Erro IA")
+        
+        # Mostra resultados temporários
+        nome_final = st.text_input("Nome Final", value=st.session_state.temp_npc_nome)
         if st.session_state.temp_npc_img:
-            st.image(st.session_state.temp_npc_img, width=150)
-        
-        with st.form("form_npc_completo"):
-            nome_final = st.text_input("Nome", value=st.session_state.temp_npc_nome)
-            raca_final = st.selectbox("Raça", ["Humano", "Elfo", "Anão", "Orc", "Drow", "Pequilho", "Outro"])
-            classe = st.text_input("Classe/Ocupação")
-            idade = st.text_input("Idade")
-            align = st.selectbox("Alinhamento", ["Leal Bom", "Neutro", "Caótico Mau", "Indefinido"])
-            segredo = st.text_area("Segredo/Lore")
-            
-            if st.form_submit_button("💾 Salvar no Banco"):
-                novo = {
-                    "nome": nome_final, "raca": raca_final, "classe": classe, 
-                    "idade": idade, "align": align, "segredo": segredo,
-                    "img_url": st.session_state.temp_npc_img
-                }
-                salvar_npc(novo)
-                st.session_state.npcs.append(novo)
-                st.session_state.temp_npc_nome = ""
-                st.session_state.temp_npc_img = ""
-                st.success("NPC Salvo!")
-                st.rerun()
+            st.image(st.session_state.temp_npc_img, width=200)
 
-    # --- LISTA (DIREITA) ---
+        st.divider()
+        st.markdown("##### 3. História")
+        if st.button("✨ Escrever Lore Automática"):
+            if api_key:
+                try:
+                    p_lore = f"""
+                    Crie um background curto (3 linhas) e um SEGREDO para este NPC.
+                    Dados: {raca_sel} {classe_sel}, {cultura_sel}, Seguidor de {religiao_sel}.
+                    """
+                    st.session_state.temp_npc_lore = genai.GenerativeModel(modelo_escolhido).generate_content(p_lore).text
+                except: st.error("Erro IA")
+        
+        lore_final = st.text_area("Lore/Segredo", value=st.session_state.temp_npc_lore)
+
+        # Botão Final
+        if st.button("💾 Salvar Ficha no Banco"):
+            novo = {
+                "nome": nome_final, "raca": raca_sel, "classe": classe_sel, 
+                "cultura": cultura_sel, "religiao": religiao_sel,
+                "idade": idade_inp, "align": align_inp, "segredo": lore_final,
+                "img_url": st.session_state.temp_npc_img
+            }
+            salvar_npc(novo)
+            st.session_state.npcs.append(novo)
+            # Limpa
+            st.session_state.temp_npc_nome = ""
+            st.session_state.temp_npc_img = ""
+            st.session_state.temp_npc_lore = ""
+            st.success("NPC Cadastrado!")
+            st.rerun()
+
+    # --- COLUNA DA DIREITA: LISTA ---
     with c_lista:
         st.subheader(f"📜 Catálogo ({len(st.session_state.npcs)})")
         
@@ -1207,31 +1254,29 @@ with tab_npc:
             st.info("Nenhum NPC cadastrado.")
         else:
             for i, npc in enumerate(st.session_state.npcs):
-                img_html = ""
-                if npc.get("img_url"):
-                    img_html = f"""<div class="npc-img-container"><img src="{npc['img_url']}" class="npc-avatar"></div>"""
-                else:
-                    img_html = f"""<div class="npc-img-container" style="display:flex;align-items:center;justify-content:center;background:#333;border-radius:50%;width:80px;height:80px;border:2px solid #666;font-size:2em;">👤</div>"""
-
+                img_html = f'<img src="{npc.get("img_url")}" class="npc-avatar">' if npc.get("img_url") else '<div class="npc-avatar" style="background:#333;display:flex;align-items:center;justify-content:center;font-size:2em">👤</div>'
+                
                 st.markdown(f"""
                 <div class="npc-card">
-                    {img_html}
+                    <div class="npc-img-container">{img_html}</div>
                     <div class="npc-content">
                         <div class="npc-header">
                             {npc['nome']}
-                            <span class="npc-sub">{npc['raca']}</span>
+                            <span class="npc-sub">{npc['raca']} | {npc.get('classe','')}</span>
+                        </div>
+                        <div class="npc-sub" style="margin-bottom:8px; color:#e6c200">
+                            {npc.get('cultura','')} • {npc.get('religiao','')}
                         </div>
                         <div class="npc-body">
-                            <span class="npc-label">Classe:</span> {npc['classe']} <br>
-                            <span class="npc-label">Idade:</span> {npc['idade']} &nbsp;|&nbsp; 
-                            <span class="npc-label">Align:</span> {npc['align']}
-                            <div class="npc-lore">"{npc['segredo']}"</div>
+                            <span class="npc-label">Idade:</span> {npc.get('idade','?')} | 
+                            <span class="npc-label">Align:</span> {npc.get('align','?')}
+                            <div class="npc-lore">{npc['segredo']}</div>
                         </div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button(f"🗑️ Deletar {npc['nome']}", key=f"del_{i}"):
+                if st.button(f"🗑️ Deletar {npc['nome']}", key=f"del_npc_{i}"):
                     deletar_npc_index(i)
                     st.session_state.npcs.pop(i)
                     st.rerun()
