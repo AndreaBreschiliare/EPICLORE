@@ -969,170 +969,145 @@ with tab_mapa:
                 except Exception as e: st.error(str(e))
 
 # ==============================================================================
-# 10. A FÁBRICA DE NPCS (LÓGICA CORRIGIDA E ROBUSTA)
+# 10. A FÁBRICA DE NPCS (CORRIGIDO)
 # ==============================================================================
-elif menu == "👥 Fábrica de NPCs":
+with tab_npc:
     st.markdown("## 👥 Gerador de NPCs & Personagens")
     st.info("Crie personagens consistentes com as regras de Aiglana, Gulthrak, Har'oloth e mais.")
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        # 1. SELETOR DE GÊNERO (NOVO)
-        genero_npc = st.radio("Gênero", ["Masculino", "Feminino", "Não-Binário"], horizontal=True)
-
-        # 2. SELETOR DE CULTURA
-        culturas_disponiveis = [
-            "Império de Aiglana", 
-            "Reinos do Leste", 
-            "Gulthrak (Horda)", 
-            "Har'oloth (Subterrâneo)", 
-            "Badûran (Fortaleza)"
-        ]
-        cultura_npc = st.selectbox("Cultura / Facção", culturas_disponiveis)
-
-    # --- LÓGICA RÍGIDA (HARD LOGIC) DE RAÇA ---
-    # Regra: Impérios (Aiglana/Leste) = Todas as Raças. O resto = Raça única.
-    
-    racas_universais = ["Humano", "Elfo", "Anão", "Orc", "Drow", "Halfling", "Tiefling"]
-    
-    if cultura_npc in ["Império de Aiglana", "Reinos do Leste"]:
-        lista_racas = racas_universais
-        msg_bloqueio = None
-    elif cultura_npc == "Gulthrak (Horda)":
-        lista_racas = ["Orc"]
-        msg_bloqueio = "🔒 Cultura restrita a Orcs."
-    elif cultura_npc == "Har'oloth (Subterrâneo)":
-        lista_racas = ["Drow (Elfo Negro)"]
-        msg_bloqueio = "🔒 Cultura restrita a Drows."
-    elif cultura_npc == "Badûran (Fortaleza)":
-        lista_racas = ["Anão"] # Assumindo Anão para Badûran baseado na lógica de engenharia
-        msg_bloqueio = "🔒 Cultura restrita a Anões."
+    # Verifica se a API Key existe antes de permitir gerar
+    if not api_key:
+        st.error("⚠️ Você precisa configurar a API Key no menu lateral para usar a Fábrica de NPCs.")
     else:
-        # Fallback
-        lista_racas = racas_universais
-        msg_bloqueio = None
+        col1, col2 = st.columns(2)
 
-    with col2:
-        raca_npc = st.selectbox("Raça", lista_racas)
-        if msg_bloqueio:
-            st.caption(msg_bloqueio)
+        with col1:
+            # 1. SELETOR DE GÊNERO
+            genero_npc = st.radio("Gênero", ["Masculino", "Feminino", "Não-Binário"], horizontal=True)
 
-    # --- LÓGICA RÍGIDA DE CLASSES ---
-    # Classes Base (Disponíveis para todos)
-    classes_base = ["Guerreiro", "Ladino", "Clérigo", "Patrulheiro", "Bardo"]
-    classes_finais = classes_base.copy()
+            # 2. SELETOR DE CULTURA
+            culturas_disponiveis = [
+                "Império de Aiglana", 
+                "Reinos do Leste", 
+                "Gulthrak (Horda)", 
+                "Har'oloth (Subterrâneo)", 
+                "Badûran (Fortaleza)"
+            ]
+            cultura_npc = st.selectbox("Cultura / Facção", culturas_disponiveis)
 
-    # Classes Especiais por Cultura
-    if cultura_npc == "Gulthrak (Horda)":
-        classes_finais.extend(["Xamã", "Aklat'tur (Quebra-Crânios)"])
-    
-    elif cultura_npc == "Har'oloth (Subterrâneo)":
-        classes_finais.extend(["Dançarino da Lâmina", "Valsharess (Sacerdotisa)"])
-    
-    elif cultura_npc == "Badûran (Fortaleza)":
-        classes_finais.extend(["Engenheiro de Artilharia", "Ferreiro Rúnico"])
-    
-    elif cultura_npc == "Império de Aiglana":
-        # Aiglana tem acesso a tudo ou quase tudo, adicionamos algumas nobres/mágicas
-        classes_finais.extend(["Mago de Guerra", "Paladino", "Engenheiro de Artilharia"])
+        # --- LÓGICA RÍGIDA (HARD LOGIC) DE RAÇA ---
+        racas_universais = ["Humano", "Elfo", "Anão", "Orc", "Drow", "Halfling", "Tiefling"]
+        
+        if cultura_npc in ["Império de Aiglana", "Reinos do Leste"]:
+            lista_racas = racas_universais
+            msg_bloqueio = None
+        elif cultura_npc == "Gulthrak (Horda)":
+            lista_racas = ["Orc"]
+            msg_bloqueio = "🔒 Cultura restrita a Orcs."
+        elif cultura_npc == "Har'oloth (Subterrâneo)":
+            lista_racas = ["Drow (Elfo Negro)"]
+            msg_bloqueio = "🔒 Cultura restrita a Drows."
+        elif cultura_npc == "Badûran (Fortaleza)":
+            lista_racas = ["Anão"] 
+            msg_bloqueio = "🔒 Cultura restrita a Anões."
+        else:
+            lista_racas = racas_universais
+            msg_bloqueio = None
 
-    # Seletor de Classe
-    classe_npc = st.selectbox("Classe / Ocupação", classes_finais)
+        with col2:
+            raca_npc = st.selectbox("Raça", lista_racas)
+            if msg_bloqueio:
+                st.caption(msg_bloqueio)
 
-    st.markdown("---")
+        # --- LÓGICA RÍGIDA DE CLASSES ---
+        classes_base = ["Guerreiro", "Ladino", "Clérigo", "Patrulheiro", "Bardo"]
+        classes_finais = classes_base.copy()
 
-    # --- BOTÃO GERAR (COM PROTEÇÃO DE ERRO) ---
-    if st.button("🎲 Gerar NPC (Nome, História e Retrato)"):
-        with st.spinner("Consultando os oráculos da IA..."):
-            try:
-                # 1. GERADOR DE NOME (Via Gemini)
-                # Prompt simplificado para evitar erros de json ou texto longo
-                prompt_nome = f"""
-                Aja como um mestre de RPG de fantasia sombria.
-                Gere APENAS UM nome (com sobrenome/título se apropriado) para um NPC com estas características:
-                Gênero: {genero_npc}
-                Raça: {raca_npc}
-                Cultura: {cultura_npc}
-                Classe: {classe_npc}
-                
-                Regras de Naming Convention:
-                - Orcs (Gulthrak): Nomes guturais, muitos consoantes (ex: Ghorbash, Azog).
-                - Drows (Har'oloth): Nomes elegantes e sinistros, muitos apóstrofos (ex: Viconia, Riz'zar).
-                - Aiglana: Nomes latinos ou imperiais.
-                
-                Retorne APENAS o nome, sem explicações.
-                """
-                # Chamada segura à IA
+        if cultura_npc == "Gulthrak (Horda)":
+            classes_finais.extend(["Xamã", "Aklat'tur (Quebra-Crânios)"])
+        elif cultura_npc == "Har'oloth (Subterrâneo)":
+            classes_finais.extend(["Dançarino da Lâmina", "Valsharess (Sacerdotisa)"])
+        elif cultura_npc == "Badûran (Fortaleza)":
+            classes_finais.extend(["Engenheiro de Artilharia", "Ferreiro Rúnico"])
+        elif cultura_npc == "Império de Aiglana":
+            classes_finais.extend(["Mago de Guerra", "Paladino", "Engenheiro de Artilharia"])
+
+        classe_npc = st.selectbox("Classe / Ocupação", classes_finais)
+
+        st.markdown("---")
+
+        # --- BOTÃO GERAR ---
+        if st.button("🎲 Gerar NPC (Nome, História e Retrato)"):
+            with st.spinner("Consultando os oráculos da IA..."):
                 try:
-                    response_nome = model.generate_content(prompt_nome)
-                    nome_gerado = response_nome.text.strip().replace("*", "").replace('"', '')
-                except Exception as e:
-                    nome_gerado = f"Npc Desconhecido ({raca_npc})"
-                    st.error(f"Erro ao gerar nome: {e}")
+                    # Instancia o modelo aqui dentro para garantir que pega a config atual
+                    model = genai.GenerativeModel(modelo_escolhido)
 
-                # 2. GERADOR DE LORE/SEGREDO
-                prompt_lore = f"""
-                Crie um parágrafo curto (máx 30 palavras) descrevendo a personalidade e um segredo sombrio de:
-                Nome: {nome_gerado}
-                Gênero: {genero_npc}
-                Raça: {raca_npc}, Classe: {classe_npc}, Cultura: {cultura_npc}.
-                Foque no tom 'Grimdark'.
-                """
-                try:
-                    response_lore = model.generate_content(prompt_lore)
-                    lore_gerada = response_lore.text.strip()
-                except:
-                    lore_gerada = "Um guerreiro silencioso com um passado esquecido."
+                    # 1. GERADOR DE NOME
+                    prompt_nome = f"""
+                    Aja como um mestre de RPG. Gere APENAS UM nome (com sobrenome) para:
+                    Gênero: {genero_npc}, Raça: {raca_npc}, Cultura: {cultura_npc}.
+                    Regras:
+                    - Orcs: Nomes guturais (ex: Gor'hash).
+                    - Drows: Nomes com apóstrofos (ex: Vi'zarran).
+                    - Aiglana: Nomes imperiais/latinos.
+                    Retorne APENAS o nome, nada mais.
+                    """
+                    try:
+                        response_nome = model.generate_content(prompt_nome)
+                        nome_gerado = response_nome.text.strip().replace("*", "").replace('"', '')
+                    except Exception as e:
+                        nome_gerado = f"Desconhecido ({raca_npc})"
+                        st.error(f"Erro nome: {e}")
 
-                # 3. GERADOR DE RETRATO (Pollinations)
-                # Construção do prompt visual em INGLÊS (Pollinations funciona melhor em inglês)
-                # Mapeamento simples de tradução para o prompt
-                gender_en = "Male" if genero_npc == "Masculino" else "Female"
-                if genero_npc == "Não-Binário": gender_en = "Androgynous"
-                
-                race_en = raca_npc.split(" ")[0] # Pega só a primeira palavra (ex: "Drow" de "Drow (Elfo Negro)")
-                
-                prompt_imagem = f"fantasy portrait of a {gender_en} {race_en} {classe_npc}, {cultura_npc} style, detailed face, dark fantasy oil painting, grimdark lighting, 8k, rpg character art"
-                
-                # Codifica URL
-                prompt_url = prompt_imagem.replace(" ", "%20")
-                image_url = f"https://image.pollinations.ai/prompt/{prompt_url}?width=512&height=768&nologo=true"
+                    # 2. GERADOR DE LORE
+                    prompt_lore = f"""
+                    Crie um parágrafo curto (máx 30 palavras) 'Grimdark' sobre:
+                    {nome_gerado} ({genero_npc} {raca_npc} {classe_npc} de {cultura_npc}).
+                    Inclua um segredo sombrio.
+                    """
+                    try:
+                        response_lore = model.generate_content(prompt_lore)
+                        lore_gerada = response_lore.text.strip()
+                    except:
+                        lore_gerada = "Guerreiro misterioso."
 
-                # --- EXIBIÇÃO (LAYOUT CARD) ---
-                c_img, c_txt = st.columns([1, 2])
-                
-                with c_img:
-                    st.image(image_url, caption=f"Retrato: {nome_gerado}")
-                    # Link para baixar
-                    st.markdown(f"[📥 Download Imagem]({image_url})")
-                
-                with c_txt:
-                    st.subheader(f"⚔️ {nome_gerado}")
-                    st.markdown(f"**{raca_npc} | {classe_npc} | {genero_npc}**")
-                    st.markdown(f"*{cultura_npc}*")
-                    st.info(f"📜 **História:** {lore_gerada}")
+                    # 3. GERADOR DE IMAGEM (Pollinations)
+                    gender_en = "Male" if genero_npc == "Masculino" else "Female"
+                    if genero_npc == "Não-Binário": gender_en = "Androgynous"
+                    race_en = raca_npc.split(" ")[0]
                     
-                    # Salvar no Banco de Dados (Simulado/Firestore)
-                    # Aqui você colocaria sua lógica de db.collection('npcs').add(...)
-                    if st.button("💾 Salvar NPC na Nuvem"):
-                        # Exemplo de objeto para salvar
-                        npc_data = {
-                            "nome": nome_gerado,
-                            "genero": genero_npc,
-                            "raca": raca_npc,
-                            "classe": classe_npc,
-                            "cultura": cultura_npc,
-                            "lore": lore_gerada,
-                            "img_url": image_url,
-                            "data": datetime.now()
-                        }
-                        # db.collection("npcs").add(npc_data) -> Descomente se tiver o DB ativo
-                        st.success(f"{nome_gerado} salvo com sucesso!")
+                    prompt_imagem = f"fantasy portrait of a {gender_en} {race_en} {classe_npc}, {cultura_npc} style, detailed face, dark fantasy, grimdark lighting, 8k"
+                    prompt_url = urllib.parse.quote(prompt_imagem) # Correção para URL segura
+                    image_url = f"https://image.pollinations.ai/prompt/{prompt_url}?width=512&height=768&nologo=true"
 
-            except Exception as global_error:
-                st.error(f"Falha crítica na Fábrica de NPCs: {global_error}")
-                st.warning("Tente novamente. Às vezes os espíritos da máquina estão ocupados.")
+                    # --- EXIBIÇÃO ---
+                    c_img, c_txt = st.columns([1, 2])
+                    
+                    with c_img:
+                        st.image(image_url, caption=nome_gerado)
+                        st.markdown(f"[📥 Baixar]({image_url})")
+                    
+                    with c_txt:
+                        st.subheader(f"⚔️ {nome_gerado}")
+                        st.markdown(f"**{raca_npc} | {classe_npc}**")
+                        st.markdown(f"*{cultura_npc}*")
+                        st.info(lore_gerada)
+                        
+                        if st.button("💾 Salvar este NPC"):
+                            novo_npc = {
+                                "nome": nome_gerado,
+                                "raca": raca_npc,
+                                "classe": classe_npc,
+                                "cultura": cultura_npc,
+                                "lore": lore_gerada,
+                                "img": image_url
+                            }
+                            salvar_npc(novo_npc)
+                            st.success("NPC Salvo no Banco de Dados!")
+
+                except Exception as global_error:
+                    st.error(f"Erro crítico: {global_error}")
 
 # ==============================================================================
 # ABA 11: QUESTS (SEPARADA)
