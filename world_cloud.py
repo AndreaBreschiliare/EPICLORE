@@ -17,6 +17,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 import pytz
 import urllib.parse
+import random
 
 # ==============================================================================
 # 1. CONFIGURAÇÃO DA PÁGINA E ESTILO VISUAL
@@ -969,7 +970,7 @@ with tab_mapa:
                 except Exception as e: st.error(str(e))
 
 # ==============================================================================
-# ABA 10: NPCs (VERSÃO FINAL CORRIGIDA)
+# ABA 10: NPCs (VERSÃO FINAL - REGRAS RÍGIDAS + SEED ALEATÓRIA)
 # ==============================================================================
 with tab_npc:
     st.header("🎲 Banco de NPCs")
@@ -1097,15 +1098,21 @@ with tab_npc:
                 try:
                     # Tradução simples para o prompt de imagem
                     gender_en = "Male" if genero_npc == "Masculino" else "Female"
-                    race_en = raca_sel.split(" ")[0] # Pega primeira palavra
+                    
+                    # Ajustes de tradução para melhorar a imagem
+                    race_en = raca_sel.split(" ")[0] 
                     if "Drow" in raca_sel: race_en = "Drow Dark Elf"
                     if "Pequenilho" in raca_sel: race_en = "Halfling"
+                    if "Anão" in raca_sel: race_en = "Dwarf"
                     
                     prompt_img = f"Portrait of {gender_en} {race_en} {classe_sel}, {cultura_sel} style, {desc_vis}, detailed face, dark fantasy rpg art"
                     safe_prompt = urllib.parse.quote(prompt_img)
                     
-                    # URL com tamanho 200x200
-                    url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux"
+                    # SEED ALEATÓRIA: Garante que a imagem mude sempre
+                    seed = random.randint(0, 999999)
+                    
+                    # URL com tamanho 200x200 e Seed
+                    url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux&seed={seed}"
                     st.session_state.temp_npc_img = url
                     st.rerun()
                 except Exception as e: 
