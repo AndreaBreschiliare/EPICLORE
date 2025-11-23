@@ -969,22 +969,23 @@ with tab_mapa:
                 except Exception as e: st.error(str(e))
 
 # ==============================================================================
-# ABA 10: NPCs (LAYOUT CLÁSSICO + REGRAS NOVAS)
+# ABA 10: NPCs (VERSÃO FINAL CORRIGIDA)
 # ==============================================================================
 with tab_npc:
     st.header("🎲 Banco de NPCs")
     
-    # Layout de 2 Colunas: Criação (Esquerda) e Lista (Direita)
+    # Layout: Coluna de Criação (Esquerda) | Coluna de Lista (Direita)
     c_criar, c_lista = st.columns([1, 1.5])
     
     with c_criar:
         st.subheader("🛠️ Criar NPC")
         
-        # --- 1. DEFINIÇÃO BÁSICA ---
-        # Gênero (Sem Não-Binário)
+        # --- 1. CONFIGURAÇÃO (Gênero -> Cultura -> Raça) ---
+        
+        # GÊNERO
         genero_npc = st.radio("Gênero", ["Masculino", "Feminino"], horizontal=True)
         
-        # Cultura (Lista Nova)
+        # CULTURA
         culturas_rpg = [
             "Império de Aiglana", 
             "Povo do Leste", 
@@ -997,10 +998,10 @@ with tab_npc:
         ]
         cultura_sel = st.selectbox("Cultura", culturas_rpg)
 
-        # --- LÓGICA DE RAÇA (Travamento) ---
+        # RAÇA (Lógica de Travamento)
         todas_racas = ["Humano", "Elfo", "Anão", "Orc", "Drow", "Pequenilho"]
         
-        # Dicionário de travamento: Cultura -> Raça Única
+        # Mapa: Se escolher a cultura X, a raça trava em Y
         mapa_raca_travada = {
             "Gulthrak (Horda)": ["Orc"],
             "Har'oloth (Subterrâneo)": ["Drow"],
@@ -1010,19 +1011,21 @@ with tab_npc:
             "Polkinea/Pequenilho": ["Pequenilho"]
         }
         
-        # Se for Império (Aiglana ou Leste), libera tudo. Se não, usa o mapa.
+        # Impérios (Aiglana e Leste) liberam todas. O resto obedece o mapa.
         if cultura_sel in ["Império de Aiglana", "Povo do Leste"]:
             lista_racas_disp = todas_racas
             travado = False
+            msg_raca = "🔓 Império: Todas as raças permitidas."
         else:
             lista_racas_disp = mapa_raca_travada.get(cultura_sel, todas_racas)
             travado = True
+            msg_raca = None
 
-        # Seleção de Raça (ABAIXO DO GÊNERO)
         raca_sel = st.selectbox("Raça", lista_racas_disp, disabled=travado)
+        if msg_raca: st.caption(msg_raca)
 
-        # --- LÓGICA DE CLASSES (Filtro de Exclusividade) ---
-        # Lista completa fornecida
+        # --- 2. CLASSE (Lógica de Exclusividade) ---
+        
         lista_classes_total = [
             # Sábio
             "Necromante", "Clérigo", "Druida", "Magus", "Dançarino das Sombras (Caster)", 
@@ -1036,7 +1039,7 @@ with tab_npc:
             "Caçador de Demônios", "Trilha-Curta"
         ]
 
-        # Quem é dono de qual classe?
+        # Quem é dono de quê? (Classes que NÃO aparecem para os outros)
         regras_exclusivas = {
             "Xamã": ["Gulthrak (Horda)"],
             "Aklat'tur": ["Gulthrak (Horda)"],
@@ -1055,11 +1058,11 @@ with tab_npc:
         for cls in lista_classes_total:
             donos = regras_exclusivas.get(cls)
             if donos:
-                # Se a classe tem dono, só aparece se a cultura atual for o dono
+                # É exclusiva: só mostra se a cultura atual for dona
                 if cultura_sel in donos:
                     classes_filtradas.append(cls)
             else:
-                # Classes sem dono aparecem para todos
+                # Não é exclusiva: mostra para todos
                 classes_filtradas.append(cls)
         
         classes_filtradas.sort()
@@ -1067,7 +1070,7 @@ with tab_npc:
 
         st.markdown("---")
         
-        # --- 2. GERADORES (NOME E IMAGEM) ---
+        # --- 3. GERADORES (NOME E IMAGEM) ---
         col_gen1, col_gen2 = st.columns(2)
         
         with col_gen1:
@@ -1081,9 +1084,10 @@ with tab_npc:
                         Gênero: {genero_npc}, Raça: {raca_sel}, Cultura: {cultura_sel}.
                         Convenções: Orcs=Gutural, Drow=Apóstrofos, Leste=Asiático, Björska=Nórdico.
                         """
-                        st.session_state.temp_npc_nome = model.generate_content(p).text.strip().replace("*","")
+                        st.session_state.temp_npc_nome = model.generate_content(p).text.strip().replace("*","").replace('"', '')
                         st.rerun()
-                    except: st.error("Erro IA")
+                    except Exception as e: 
+                        st.error(f"Erro IA: {e}")
                 else: st.warning("Sem API Key")
         
         with col_gen2:
@@ -1091,33 +1095,35 @@ with tab_npc:
             desc_vis = st.text_input("Aparência Extra (ex: cicatriz):")
             if st.button("📸 Retrato (200px)"):
                 try:
-                    # Tradução simples para prompt
+                    # Tradução simples para o prompt de imagem
                     gender_en = "Male" if genero_npc == "Masculino" else "Female"
-                    race_en = raca_sel.split(" ")[0] # Pega a primeira palavra
+                    race_en = raca_sel.split(" ")[0] # Pega primeira palavra
                     if "Drow" in raca_sel: race_en = "Drow Dark Elf"
+                    if "Pequenilho" in raca_sel: race_en = "Halfling"
                     
                     prompt_img = f"Portrait of {gender_en} {race_en} {classe_sel}, {cultura_sel} style, {desc_vis}, detailed face, dark fantasy rpg art"
                     safe_prompt = urllib.parse.quote(prompt_img)
                     
-                    # URL Pollinations com tamanho 200x200
+                    # URL com tamanho 200x200
                     url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux"
                     st.session_state.temp_npc_img = url
                     st.rerun()
-                except: st.error("Erro Imagem")
+                except Exception as e: 
+                    st.error(f"Erro Imagem: {e}")
 
         # Campo Editável de Nome
         nome_final = st.text_input("Nome Final", value=st.session_state.temp_npc_nome)
         
         # Exibição da Imagem (Se houver)
         if st.session_state.temp_npc_img:
-            # HTML para tornar clicável
-            link_html = f'<a href="{st.session_state.temp_npc_img}" target="_blank"><img src="{st.session_state.temp_npc_img}" style="border-radius:8px; border: 2px solid #e6c200; width: 200px; height: 200px;"></a>'
+            # HTML para tornar clicável e manter 200x200
+            link_html = f'<a href="{st.session_state.temp_npc_img}" target="_blank"><img src="{st.session_state.temp_npc_img}" style="border-radius:8px; border: 2px solid #e6c200; width: 200px; height: 200px; object-fit: cover;"></a>'
             st.markdown(link_html, unsafe_allow_html=True)
             st.caption("Clique na imagem para baixar.")
 
         st.markdown("---")
         
-        # --- 3. HISTÓRIA (LORE) ---
+        # --- 4. HISTÓRIA (LORE) ---
         st.markdown("##### História & Segredos")
         if st.button("✨ Escrever Lore Automática"):
             if api_key:
@@ -1130,16 +1136,17 @@ with tab_npc:
                     """
                     st.session_state.temp_npc_lore = model.generate_content(p_lore).text
                     st.rerun()
-                except: st.error("Erro IA")
+                except Exception as e: 
+                    st.error(f"Erro IA: {e}")
         
         # Campo Editável de Lore
         lore_final = st.text_area("Editar Lore/Segredo", value=st.session_state.temp_npc_lore, height=100)
 
-        # --- 4. BOTÃO SALVAR ---
+        # --- 5. BOTÃO SALVAR ---
         st.markdown("---")
         if st.button("💾 Salvar Ficha no Banco", type="primary"):
             novo_npc = {
-                "nome": nome_final, 
+                "nome": nome_final if nome_final else "Desconhecido", 
                 "genero": genero_npc,
                 "raca": raca_sel, 
                 "classe": classe_sel, 
@@ -1166,13 +1173,16 @@ with tab_npc:
     with c_lista:
         st.subheader(f"📜 Catálogo ({len(st.session_state.npcs)})")
         
-        # Inverte a lista para mostrar os mais recentes primeiro
-        for i, npc in enumerate(reversed(st.session_state.npcs)):
-            # Calcula o índice real (porque estamos invertendo o loop visualmente)
+        # Mostra lista invertida (mais recentes no topo)
+        lista_invertida = list(reversed(st.session_state.npcs))
+        
+        for i, npc in enumerate(lista_invertida):
+            # Índice original para deleção correta
             real_index = len(st.session_state.npcs) - 1 - i
             
             img_url = npc.get("img_url", "")
-            # HTML do Avatar
+            
+            # HTML do Avatar Pequeno na lista
             if img_url:
                 img_html = f'<a href="{img_url}" target="_blank"><img src="{img_url}" class="npc-avatar" style="width:80px; height:80px;"></a>'
             else:
@@ -1199,8 +1209,8 @@ with tab_npc:
             
             # Botão de Deletar
             if st.button(f"🗑️ Apagar {npc.get('nome')}", key=f"del_{real_index}"):
-                deletar_npc_index(real_index) # Função do banco
-                st.session_state.npcs.pop(real_index) # Atualiza local
+                deletar_npc_index(real_index) 
+                st.session_state.npcs.pop(real_index)
                 st.rerun()
 # ==============================================================================
 # ABA 11: QUESTS (SEPARADA)
