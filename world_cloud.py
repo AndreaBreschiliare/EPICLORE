@@ -18,6 +18,7 @@ from datetime import datetime
 import pytz
 import urllib.parse
 import random
+from streamlit_agraph import agraph, Node, Edge, Config
 
 # ==============================================================================
 # 1. CONFIGURAÇÃO DA PÁGINA E ESTILO VISUAL
@@ -1346,4 +1347,142 @@ with tab_quests:
         if "quest_result" in st.session_state:
             st.markdown(st.session_state.quest_result)
 
+# ==============================================================================
+# ABA 12: TEIA DE INTRIGAS (RELATIONSHIP GRAPH)
+# ==============================================================================
+with tab_teia:
+    st.header("🕸️ Teia de Intrigas & Poder")
+    st.caption("Visualização de grafos para análise de conexões políticas, alianças e rivalidades.")
+    
+    # Carrega dados
+    npcs_existentes = st.session_state.npcs
+    if not npcs_existentes:
+        st.warning("Você precisa criar NPCs na aba '🎲 NPCs' primeiro.")
+    else:
+        # Cria lista de nomes para o selectbox
+        lista_nomes = [n['nome'] for n in npcs_existentes]
+        # Adiciona Facções (Hardcoded ou do Lore) para enriquecer o grafo
+        lista_entidades = lista_nomes + CULTURAS + ["Rei/Imperador", "Deus/Entidade"]
+        
+        # --- 1. CONTROLE DE RELAÇÕES (ADICIONAR/REMOVER) ---
+        with st.expander("🔗 Gerenciar Vínculos", expanded=False):
+            c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
+            
+            with c1:
+                origem = st.selectbox("Origem", lista_entidades, key="rel_origem")
+            with c2:
+                # Remove a origem da lista de destino para evitar auto-relação
+                destinos_validos = [x for x in lista_entidades if x != origem]
+                destino = st.selectbox("Destino", destinos_validos, key="rel_destino")
+            with c3:
+                tipo_rel = st.selectbox("Tipo de Relação", [
+                    "🟢 Aliança / Amizade", 
+                    "🔴 Ódio / Guerra", 
+                    "🔵 Família / Sangue",
+                    "🟣 Mestre / Servo",
+                    "🟡 Comércio / Dívida"
+                ])
+            with c4:
+                st.write("") # Espaço
+                st.write("")
+                if st.button("➕ Vincular"):
+                    # Define cor baseada na escolha
+                    cor_map = {
+                        "🟢": "#00ff00", # Verde Matrix
+                        "🔴": "#ff0000", # Vermelho Sangue
+                        "🔵": "#00ccff", # Azul Cyan
+                        "🟣": "#9900ff", # Roxo
+                        "🟡": "#ffcc00"  # Ouro
+                    }
+                    cor_escolhida = cor_map.get(tipo_rel[0], "white")
+                    texto_rel = tipo_rel.split(" ", 1)[1]
+                    
+                    adicionar_relacao(origem, destino, texto_rel, cor_escolhida)
+                    st.toast(f"Vínculo {origem} -> {destino} criado!", icon="🔗")
+                    st.rerun()
 
+            # Lista para remover
+            relacoes_atuais = carregar_relacoes()
+            if relacoes_atuais:
+                st.markdown("##### Vínculos Ativos")
+                for i, rel in enumerate(relacoes_atuais):
+                    cols = st.columns([4, 1])
+                    with cols[0]:
+                        st.caption(f"{rel['source']} ➡️ {rel['target']} ({rel['type']})")
+                    with cols[1]:
+                        if st.button("❌", key=f"del_rel_{i}"):
+                            deletar_relacao(i)
+                            st.rerun()
+
+        # --- 2. VISUALIZAÇÃO DO GRAFO ---
+        st.divider()
+        
+        # Construindo NÓS (Nodes)
+        nodes = []
+        ids_adicionados = set()
+        
+        # Adiciona nós baseados nas relações existentes (para não encher de npc solto)
+        # Mas se quiser mostrar todos, use a lista de npcs
+        
+        # A) Adiciona NPCs com FOTOS
+        for npc in npcs_existentes:
+            # Só adiciona se o NPC tiver alguma relação ou se quisermos mostrar todos
+            # Vamos mostrar todos os NPCs criados
+            img = npc.get('img_url', "")
+            # Se não tiver imagem, usa um placeholder ou nada
+            if not img: img = "https://cdn-icons-png.flaticon.com/512/847/847969.png" # Icone genérico
+            
+            nodes.append(Node(
+                id=npc['nome'], 
+                label=npc['nome'], 
+                size=25, 
+                shape="circularImage", 
+                image=img,
+                borderWidth=3,
+                color="#e6c200", # Borda Dourada
+                title=f"{npc['raca']} | {npc['classe']}" # Tooltip
+            ))
+            ids_adicionados.add(npc['nome'])
+
+        # B) Adiciona Nós que estão nas relações mas não são NPCs (ex: Facções, Deuses)
+        for rel in relacoes_atuais:
+            for entidade in [rel['source'], rel['target']]:
+                if entidade not in ids_adicionados:
+                    nodes.append(Node(
+                        id=entidade,
+                        label=entidade,
+                        size=20,
+                        shape="dot", # Bolinha normal para facções
+                        color="#555555"
+                    ))
+                    ids_adicionados.add(entidade)
+
+        # Construindo ARESTAS (Edges)
+        edges = []
+        for rel in relacoes_atuais:
+            edges.append(Edge(
+                source=rel['source'], 
+                target=rel['target'], 
+                label=rel['type'],
+                color=rel['color'],
+                width=2,
+                arrows="to" # Seta direcional
+            ))
+
+        # Configuração Visual (Physics = True faz eles se mexerem)
+        config = Config(
+            width=1200, 
+            height=600, 
+            directed=True, 
+            physics=True, 
+            hierarchical=False,
+            nodeHighlightBehavior=True,
+            highlightColor="#e6c200",
+            collapsible=False
+        )
+
+        # Renderiza
+        if nodes:
+            return_value = agraph(nodes=nodes, edges=edges, config=config)
+        else:
+            st.info("Adicione NPCs e crie vínculos para ver a teia.")
