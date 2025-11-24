@@ -20,6 +20,7 @@ import urllib.parse
 import random
 # --- IMPORT NOVO PARA O GRAFO ---
 from streamlit_agraph import agraph, Node, Edge, Config
+from epicbrain_panel import render_epicbrain_panel
 
 # ==============================================================================
 # 1. CONFIGURAÇÃO DA PÁGINA E ESTILO VISUAL
@@ -211,6 +212,7 @@ CULTURAS = [
     "Aiglana", "Har'oloth", "Povos do Leste", "Björska", 
     "Alüriel", "Badûran", "Gulthrak", "Polkinea"
 ]
+
 
 # ==============================================================================
 # 3. INICIALIZAÇÃO DE ESTADO
@@ -448,15 +450,15 @@ with st.sidebar:
         else: st.warning("Termo não encontrado.")
 
 # ==============================================================================
-# 8. ABAS (ATUALIZADO COM TEIA)
+# 8. ABAS (ATUALIZADO COM TEIA E EPICBRAIN)
 # ==============================================================================
 abas = [
     "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
     "📚 Glossário", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa", "🎲 NPCs", 
-    "📜 Quests", "🕸️ Teia"
+    "📜 Quests", "🕸️ Teia", "🎮 EpicBrain"
 ]
 
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_quests, tab_teia = st.tabs(abas)
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_quests, tab_teia, tab_epicbrain = st.tabs(abas)
 
 # ==============================================================================
 # ABA 1: EDITOR
@@ -1443,3 +1445,9 @@ with tab_teia:
             return_value = agraph(nodes=nodes, edges=edges, config=config)
         else:
             st.info("Adicione NPCs e crie vínculos para ver a teia.")
+
+# ==============================================================================
+# ABA 13: EPICBRAIN
+# ==============================================================================
+with tab_epicbrain:
+    render_epicbrain_panel()
