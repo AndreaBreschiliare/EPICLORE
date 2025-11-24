@@ -18,6 +18,7 @@ from datetime import datetime
 import pytz
 import urllib.parse
 import random
+# --- IMPORT NOVO PARA O GRAFO ---
 from streamlit_agraph import agraph, Node, Edge, Config
 
 # ==============================================================================
@@ -193,10 +194,9 @@ def aplicar_estilo_visual():
 aplicar_estilo_visual()
 
 # ==============================================================================
-# 2. DADOS E CONSTANTES DO RPG (ATUALIZADO)
+# 2. DADOS E CONSTANTES DO RPG
 # ==============================================================================
 
-# Listas de Lore (Texto)
 CATEGORIAS = [
     "Absencia - Caos", "Radiancia - Ordem", "Warp", "Os 4 Cavaleiros",
     "Facções", "Epic! Aetherius", "Resumo Primeira Era", "Resumo Segunda Era", 
@@ -207,40 +207,13 @@ CATEGORIAS = [
     "Povo - Aluriel", "Povo - Baduran", "Povo - Gulthrak", "Povo - Polkinea"
 ]
 
-# Estrutura de Classes e Caminhos (ATUALIZADA COM NOVAS CLASSES)
-CAMINHOS_RPG = {
-    "Sabio": [
-        "Necromante", "Clérigo", "Druida", "Magus", "Dançarino das Sombras Caster", 
-        "Shaman / Xamã", "Granadeiro", "Lâmina Arcana", "Arqueiro Arcano", "Engenheiro de Artilharia",
-        "Valsharess" # Adicionado para Har'oloth
-    ],
-    "Guerreiro": [
-        "Arqueiro", "Caçador", "Combatente", "Defensor", "Paladino", 
-        "Aklat'tur", "Bárbaro", "Monge", "Samurai", "Mutante",
-        "Boat Makers (Wood Worker)" # Adicionado para Björska
-    ],
-    "Ladino": [
-        "Malandro Arcano", "Caçador de Tesouros", "Assassino", "Esgrimista", 
-        "Ladrao", "Espiao", "Vivisseccionista", "Bardo", "Dançarino das Sombras", "Caçador de demônios",
-        "Trilha-Curta (Domestic Worker)" # Adicionado para Polkinea
-    ]
-}
-
-# Culturas e Raças
 CULTURAS = [
     "Aiglana", "Har'oloth", "Povos do Leste", "Björska", 
     "Alüriel", "Badûran", "Gulthrak", "Polkinea"
 ]
 
-RACAS = ["Anão", "Drow", "Elfo", "Orc", "Humano", "Polski"]
-
-RELIGIOES = [
-    "Veneratio", "Eluith'orth", "Kai", "Halleuad", 
-    "Lórё", "Bokk Bharaz", "Ushkr'ar", "Céticos"
-]
-
 # ==============================================================================
-# 3. INICIALIZAÇÃO DE ESTADO (SESSION STATE)
+# 3. INICIALIZAÇÃO DE ESTADO
 # ==============================================================================
 if "sugestoes_ia" not in st.session_state:
     st.session_state.sugestoes_ia = {}
@@ -286,31 +259,25 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ==============================================================================
-# 5. FUNÇÕES AUXILIARES (LÓGICA)
+# 5. FUNÇÕES AUXILIARES
 # ==============================================================================
 
 def enviar_alerta_email(categoria_alterada):
-    """Envia notificação por e-mail quando algo é salvo."""
-    if "email" not in st.secrets:
-        return False
+    if "email" not in st.secrets: return False
     try:
         smtp_server = "smtp.gmail.com"
         smtp_port = 587
         usuario = st.secrets["email"]["usuario"]
         senha = st.secrets["email"]["senha"]
         destinatario = st.secrets["email"]["destinatario"]
-
         msg = MIMEMultipart()
         msg['From'] = usuario
         msg['To'] = destinatario
         msg['Subject'] = f"🔔 Alteração: {categoria_alterada}"
-        
         fuso = pytz.timezone('America/Sao_Paulo')
         hora = datetime.now(fuso).strftime("%d/%m/%Y às %H:%M")
-        
         texto = f"A seção '{categoria_alterada}' foi modificada e salva no banco de dados às {hora}."
         msg.attach(MIMEText(texto, 'plain'))
-
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(usuario, senha)
@@ -325,8 +292,7 @@ def enviar_alerta_email(categoria_alterada):
 def carregar_lore():
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc = doc_ref.get()
-    if doc.exists:
-        return doc.to_dict()
+    if doc.exists: return doc.to_dict()
     else:
         dados_iniciais = {cat: "" for cat in CATEGORIAS}
         doc_ref.set(dados_iniciais)
@@ -340,8 +306,7 @@ def salvar_categoria(categoria, texto):
 # --- NPCs ---
 def carregar_npcs():
     doc = db.collection("mundos").document("npc_database").get()
-    if doc.exists:
-        return doc.to_dict().get("lista", [])
+    if doc.exists: return doc.to_dict().get("lista", [])
     return []
 
 def salvar_npc(novo_npc):
@@ -361,14 +326,12 @@ def salvar_mapa_b64(b64_string):
 
 def carregar_mapa():
     doc = db.collection("mundos").document("mapa_oficial").get()
-    if doc.exists:
-        return doc.to_dict().get("imagem_b64", None)
+    if doc.exists: return doc.to_dict().get("imagem_b64", None)
     return None
 
 def carregar_pins():
     doc = db.collection("mundos").document("mapa_pins").get()
-    if doc.exists:
-        return doc.to_dict().get("lista", [])
+    if doc.exists: return doc.to_dict().get("lista", [])
     return []
 
 def salvar_pins(lista_pins):
@@ -376,31 +339,52 @@ def salvar_pins(lista_pins):
 
 def carregar_cache_analises():
     doc = db.collection("mundos").document("cache_analises").get()
-    if doc.exists:
-        return doc.to_dict()
+    if doc.exists: return doc.to_dict()
     return {}
 
 def salvar_cache_analise(tipo, dados):
     doc_ref = db.collection("mundos").document("cache_analises")
     doc_ref.set({tipo: dados}, merge=True)
 
+# --- RELACIONAMENTOS (GRAPH) - NOVO ---
+def carregar_relacoes():
+    doc = db.collection("mundos").document("relacoes_graph").get()
+    if doc.exists:
+        return doc.to_dict().get("lista", [])
+    return []
+
+def salvar_relacoes(lista):
+    db.collection("mundos").document("relacoes_graph").set({"lista": lista})
+
+def adicionar_relacao(origem, destino, tipo, cor):
+    rels = carregar_relacoes()
+    # Evita duplicatas exatas
+    novo = {"source": origem, "target": destino, "type": tipo, "color": cor}
+    if novo not in rels:
+        rels.append(novo)
+        salvar_relacoes(rels)
+        return True
+    return False
+
+def deletar_relacao(idx):
+    rels = carregar_relacoes()
+    if 0 <= idx < len(rels):
+        rels.pop(idx)
+        salvar_relacoes(rels)
+
 # --- UTILS ---
 def extrair_json(texto):
     try:
         match = re.search(r"```json\n(.*?)\n```", texto, re.DOTALL)
-        if match:
-            return json.loads(match.group(1))
+        if match: return json.loads(match.group(1))
         match = re.search(r"\{.*\}", texto, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
+        if match: return json.loads(match.group(0))
         return None
-    except:
-        return None
+    except: return None
 
 def comprimir_imagem(arquivo_upload):
     image = Image.open(arquivo_upload)
-    if image.mode in ("RGBA", "P"):
-        image = image.convert("RGB")
+    if image.mode in ("RGBA", "P"): image = image.convert("RGB")
     max_width = 1600
     if image.width > max_width:
         ratio = max_width / float(image.width)
@@ -411,43 +395,29 @@ def comprimir_imagem(arquivo_upload):
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 # ==============================================================================
-# 6. CARREGAMENTO INICIAL DE DADOS
+# 6. CARREGAMENTO INICIAL
 # ==============================================================================
 caches_salvos = carregar_cache_analises()
 
-if not st.session_state.sugestoes_ia: 
-    st.session_state.sugestoes_ia = caches_salvos.get("sugestoes", {})
-if not st.session_state.erros_ia: 
-    st.session_state.erros_ia = caches_salvos.get("erros", {})
-if not st.session_state.resumo_erros: 
-    st.session_state.resumo_erros = caches_salvos.get("resumo_erros", "")
-if not st.session_state.auditoria_dados: 
-    st.session_state.auditoria_dados = caches_salvos.get("auditoria", [])
-if not st.session_state.messages: 
-    st.session_state.messages = caches_salvos.get("chat_history", [])
-if not st.session_state.glossario: 
-    st.session_state.glossario = caches_salvos.get("glossario", {})
-if not st.session_state.timeline_dados: 
-    st.session_state.timeline_dados = caches_salvos.get("timeline_dados", [])
-if not st.session_state.dashboard_dados: 
-    st.session_state.dashboard_dados = caches_salvos.get("dashboard_dados", [])
-if not st.session_state.mapa_pins:
-    st.session_state.mapa_pins = carregar_pins()
-if not st.session_state.npcs:
-    st.session_state.npcs = carregar_npcs()
+if not st.session_state.sugestoes_ia: st.session_state.sugestoes_ia = caches_salvos.get("sugestoes", {})
+if not st.session_state.erros_ia: st.session_state.erros_ia = caches_salvos.get("erros", {})
+if not st.session_state.resumo_erros: st.session_state.resumo_erros = caches_salvos.get("resumo_erros", "")
+if not st.session_state.auditoria_dados: st.session_state.auditoria_dados = caches_salvos.get("auditoria", [])
+if not st.session_state.messages: st.session_state.messages = caches_salvos.get("chat_history", [])
+if not st.session_state.glossario: st.session_state.glossario = caches_salvos.get("glossario", {})
+if not st.session_state.timeline_dados: st.session_state.timeline_dados = caches_salvos.get("timeline_dados", [])
+if not st.session_state.dashboard_dados: st.session_state.dashboard_dados = caches_salvos.get("dashboard_dados", [])
+if not st.session_state.mapa_pins: st.session_state.mapa_pins = carregar_pins()
+if not st.session_state.npcs: st.session_state.npcs = carregar_npcs()
 
-try:
-    lore_data = carregar_lore()
-except Exception as e:
-    st.error(f"Erro ao carregar Lore do Banco: {e}")
-    st.stop()
+try: lore_data = carregar_lore()
+except Exception as e: st.error(f"Erro ao carregar Lore: {e}"); st.stop()
 
 # ==============================================================================
 # 7. BARRA LATERAL
 # ==============================================================================
 with st.sidebar:
     st.title("🏰 World Architect")
-    
     st.header("⚙️ Configuração")
     api_key = st.text_input("Chave do Oráculo (API Key)", type="password")
     
@@ -463,43 +433,30 @@ with st.sidebar:
             if lista_modelos:
                 lista_modelos.sort(key=lambda x: "flash" not in x)
                 modelo_escolhido = st.selectbox("Cérebro da IA:", lista_modelos, index=0)
-        except Exception as e:
-            st.error(f"Erro ao listar modelos: {e}")
+        except Exception as e: st.error(f"Erro ao listar modelos: {e}")
 
     st.divider()
-    
     st.subheader("🔍 Busca Global")
     termo_busca = st.text_input("Procurar no Lore:", placeholder="Ex: Elfos")
     if termo_busca:
         resultados = []
         for cat, texto in lore_data.items():
-            if termo_busca.lower() in texto.lower():
-                resultados.append(cat)
+            if termo_busca.lower() in texto.lower(): resultados.append(cat)
         if resultados:
             st.success(f"Encontrado em {len(resultados)} seções:")
-            for r in resultados:
-                st.caption(f"• {r}")
-        else:
-            st.warning("Termo não encontrado.")
+            for r in resultados: st.caption(f"• {r}")
+        else: st.warning("Termo não encontrado.")
 
 # ==============================================================================
-# 8. ABAS
+# 8. ABAS (ATUALIZADO COM TEIA)
 # ==============================================================================
 abas = [
-    "✍️ Editor", 
-    "🧠 Chat", 
-    "⚖️ Auditoria", 
-    "💡 Sugestões", 
-    "⚡ Incoerências", 
-    "📚 Glossário", 
-    "📉 Timeline", 
-    "📊 Dashboards", 
-    "🗺️ Mapa",
-    "🎲 NPCs",
-    "📜 Quests"
+    "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
+    "📚 Glossário", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa", "🎲 NPCs", 
+    "📜 Quests", "🕸️ Teia"
 ]
 
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_quests = st.tabs(abas)
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_quests, tab_teia = st.tabs(abas)
 
 # ==============================================================================
 # ABA 1: EDITOR
