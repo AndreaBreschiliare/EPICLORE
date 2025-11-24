@@ -5,3 +5,4 @@ Pillow
 pandas
 plotly
 streamlit-image-coordinates
+pip install streamlit-agraph
