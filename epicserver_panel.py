@@ -346,18 +346,19 @@ def render_epicserver_panel():
     # Inicializar cliente
     client = EpicServerClient()
     
-    # Testar conexão
-    with st.sidebar:
-        st.subheader("🔌 Status da Conexão")
-        
+    # Testar conexão (Exibir no painel principal)
+    col_status, col_url = st.columns([1, 3])
+    with col_status:
         if client.test_connection():
             st.success("✅ Conectado ao POL")
         else:
-            st.error("❌ POL não disponível")
-            st.info(f"Tentando conectar em: `{client.base_url}`")
-            st.markdown("Verifique `epicserver_config.py`")
-        
-        st.divider()
+            st.error("❌ POL Offline")
+    
+    with col_url:
+        if not client.test_connection():
+            st.info(f"Tentando conectar em: `{client.base_url}` (Verifique `epicserver_config.py`)")
+    
+    st.divider()
     
     # Abas principais
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([

@@ -250,16 +250,33 @@ if "temp_npc_lore" not in st.session_state:
 # ==============================================================================
 # 4. CONEXÃO COM O FIREBASE
 # ==============================================================================
+# ==============================================================================
+# 4. CONEXÃO COM O FIREBASE
+# ==============================================================================
+FIREBASE_AVAILABLE = False
+db = None
+
 if not firebase_admin._apps:
     try:
-        key_dict = json.loads(st.secrets["textkey"])
-        cred = credentials.Certificate(key_dict)
-        firebase_admin.initialize_app(cred)
+        if "textkey" in st.secrets:
+            key_dict = json.loads(st.secrets["textkey"])
+            cred = credentials.Certificate(key_dict)
+            firebase_admin.initialize_app(cred)
+            FIREBASE_AVAILABLE = True
+        else:
+            st.warning("⚠️ Segredo 'textkey' não encontrado. Modo offline ativado.")
     except Exception as e:
-        st.error(f"❌ Erro Crítico nos Segredos (Secrets): {e}")
-        st.stop()
+        st.warning(f"⚠️ Aviso: Firebase não conectado. Modo offline ativado. Erro: {e}")
+else:
+    FIREBASE_AVAILABLE = True
 
-db = firestore.client()
+if FIREBASE_AVAILABLE:
+    try:
+        db = firestore.client()
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao conectar ao Firestore: {e}")
+        FIREBASE_AVAILABLE = False
+        db = None
 
 # ==============================================================================
 # 5. FUNÇÕES AUXILIARES
@@ -293,31 +310,51 @@ def enviar_alerta_email(categoria_alterada):
 
 # --- LORE ---
 def carregar_lore():
-    doc_ref = db.collection("mundos").document("lore_oficial")
-    doc = doc_ref.get()
-    if doc.exists: return doc.to_dict()
-    else:
-        dados_iniciais = {cat: "" for cat in CATEGORIAS}
-        doc_ref.set(dados_iniciais)
-        return dados_iniciais
+    if not FIREBASE_AVAILABLE or not db:
+        return {cat: "" for cat in CATEGORIAS}
+        
+    try:
+        doc_ref = db.collection("mundos").document("lore_oficial")
+        doc = doc_ref.get()
+        if doc.exists: return doc.to_dict()
+        else:
+            dados_iniciais = {cat: "" for cat in CATEGORIAS}
+            doc_ref.set(dados_iniciais)
+            return dados_iniciais
+    except:
+        return {cat: "" for cat in CATEGORIAS}
 
 def salvar_categoria(categoria, texto):
+    if not FIREBASE_AVAILABLE or not db:
+        st.warning("⚠️ Modo offline: Alterações não serão salvas na nuvem.")
+        return
+        
     doc_ref = db.collection("mundos").document("lore_oficial")
     doc_ref.set({categoria: texto}, merge=True)
     enviar_alerta_email(categoria)
 
 # --- NPCs ---
 def carregar_npcs():
-    doc = db.collection("mundos").document("npc_database").get()
-    if doc.exists: return doc.to_dict().get("lista", [])
-    return []
+    if not FIREBASE_AVAILABLE or not db: return []
+    
+    try:
+        doc = db.collection("mundos").document("npc_database").get()
+        if doc.exists: return doc.to_dict().get("lista", [])
+        return []
+    except: return []
 
 def salvar_npc(novo_npc):
+    if not FIREBASE_AVAILABLE or not db:
+        st.warning("⚠️ Modo offline: NPC não salvo.")
+        return
+
     npcs = carregar_npcs()
     npcs.append(novo_npc)
     db.collection("mundos").document("npc_database").set({"lista": npcs})
 
 def deletar_npc_index(index):
+    if not FIREBASE_AVAILABLE or not db: return
+
     npcs = carregar_npcs()
     if 0 <= index < len(npcs):
         npcs.pop(index)
@@ -325,38 +362,54 @@ def deletar_npc_index(index):
 
 # --- MAPAS E CACHE ---
 def salvar_mapa_b64(b64_string):
+    if not FIREBASE_AVAILABLE or not db: return
     db.collection("mundos").document("mapa_oficial").set({"imagem_b64": b64_string})
 
 def carregar_mapa():
-    doc = db.collection("mundos").document("mapa_oficial").get()
-    if doc.exists: return doc.to_dict().get("imagem_b64", None)
-    return None
+    if not FIREBASE_AVAILABLE or not db: return None
+    try:
+        doc = db.collection("mundos").document("mapa_oficial").get()
+        if doc.exists: return doc.to_dict().get("imagem_b64", None)
+        return None
+    except: return None
 
 def carregar_pins():
-    doc = db.collection("mundos").document("mapa_pins").get()
-    if doc.exists: return doc.to_dict().get("lista", [])
-    return []
+    if not FIREBASE_AVAILABLE or not db: return []
+    try:
+        doc = db.collection("mundos").document("mapa_pins").get()
+        if doc.exists: return doc.to_dict().get("lista", [])
+        return []
+    except: return []
 
 def salvar_pins(lista_pins):
+    if not FIREBASE_AVAILABLE or not db: return
     db.collection("mundos").document("mapa_pins").set({"lista": lista_pins})
 
 def carregar_cache_analises():
-    doc = db.collection("mundos").document("cache_analises").get()
-    if doc.exists: return doc.to_dict()
-    return {}
+    if not FIREBASE_AVAILABLE or not db: return {}
+    try:
+        doc = db.collection("mundos").document("cache_analises").get()
+        if doc.exists: return doc.to_dict()
+        return {}
+    except: return {}
 
 def salvar_cache_analise(tipo, dados):
+    if not FIREBASE_AVAILABLE or not db: return
     doc_ref = db.collection("mundos").document("cache_analises")
     doc_ref.set({tipo: dados}, merge=True)
 
 # --- RELACIONAMENTOS (GRAPH) - NOVO ---
 def carregar_relacoes():
-    doc = db.collection("mundos").document("relacoes_graph").get()
-    if doc.exists:
-        return doc.to_dict().get("lista", [])
-    return []
+    if not FIREBASE_AVAILABLE or not db: return []
+    try:
+        doc = db.collection("mundos").document("relacoes_graph").get()
+        if doc.exists:
+            return doc.to_dict().get("lista", [])
+        return []
+    except: return []
 
 def salvar_relacoes(lista):
+    if not FIREBASE_AVAILABLE or not db: return
     db.collection("mundos").document("relacoes_graph").set({"lista": lista})
 
 def adicionar_relacao(origem, destino, tipo, cor):
@@ -414,7 +467,9 @@ if not st.session_state.mapa_pins: st.session_state.mapa_pins = carregar_pins()
 if not st.session_state.npcs: st.session_state.npcs = carregar_npcs()
 
 try: lore_data = carregar_lore()
-except Exception as e: st.error(f"Erro ao carregar Lore: {e}"); st.stop()
+except Exception as e: 
+    st.error(f"Erro ao carregar Lore: {e}")
+    lore_data = {cat: "" for cat in CATEGORIAS}
 
 # ==============================================================================
 # 7. BARRA LATERAL
