@@ -21,6 +21,7 @@ import random
 # --- IMPORT NOVO PARA O GRAFO ---
 from streamlit_agraph import agraph, Node, Edge, Config
 from epicbrain_panel import render_epicbrain_panel
+from epicserver_panel import render_epicserver_panel
 
 # ==============================================================================
 # 1. CONFIGURAÇÃO DA PÁGINA E ESTILO VISUAL
@@ -455,10 +456,10 @@ with st.sidebar:
 abas = [
     "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
     "📚 Glossário", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa", "🎲 NPCs", 
-    "📜 Quests", "🕸️ Teia", "🎮 EpicBrain"
+    "📜 Quests", "🕸️ Teia", "🎮 EpicBrain", "⚙️ Epic Server"
 ]
 
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_quests, tab_teia, tab_epicbrain = st.tabs(abas)
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_quests, tab_teia, tab_epicbrain, tab_epicserver = st.tabs(abas)
 
 # ==============================================================================
 # ABA 1: EDITOR
@@ -1451,3 +1452,10 @@ with tab_teia:
 # ==============================================================================
 with tab_epicbrain:
     render_epicbrain_panel()
+
+# ==============================================================================
+# ABA 14: EPIC SERVER ANALYZER
+# ==============================================================================
+with tab_epicserver:
+    render_epicserver_panel()
+
