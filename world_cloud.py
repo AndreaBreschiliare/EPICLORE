@@ -491,6 +491,14 @@ with st.sidebar:
             if lista_modelos:
                 lista_modelos.sort(key=lambda x: "flash" not in x)
                 modelo_escolhido = st.selectbox("Cérebro da IA:", lista_modelos, index=0)
+            
+            if st.button("🕵️ Listar Todos os Modelos (Debug)"):
+                st.write("--- Modelos Disponíveis ---")
+                for m in genai.list_models():
+                    st.write(f"**{m.name}**")
+                    st.caption(f"Métodos: {m.supported_generation_methods}")
+                st.write("---------------------------")
+
         except Exception as e: st.error(f"Erro ao listar modelos: {e}")
 
     st.divider()

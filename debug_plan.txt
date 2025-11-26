@@ -1,0 +1,28 @@
+import google.generativeai as genai
+import os
+
+# We need the API key. Since I can't interactively get it, 
+# and I don't want to ask the user to paste it in the chat for security,
+# I will try to rely on the fact that the user might have set it in the environment 
+# or I will ask the user to run this script or I will try to use a placeholder 
+# and hope the error message is descriptive enough (which it won't be without auth).
+
+# Actually, the user's `world_cloud.py` has the key in `st.secrets` or input.
+# I can't easily access `st.secrets` from a standalone script unless I mock it.
+# But wait, the previous error came from the *app* running. 
+
+# I will create a script that tries to list models. 
+# If the environment variable GOOGLE_API_KEY is not set, this might fail.
+# But often in these environments it might be set. 
+# If not, I'll have to ask the user to check the logs or I'll provide a snippet 
+# for them to run in their app to debug.
+
+# Let's try to see if I can list models without a key (unlikely) or if the key is in env.
+# If not, I will create a small streamlit app `debug_models.py` that the user can run? 
+# No, that's too complex.
+
+# Better approach: Modify `world_cloud.py` temporarily to print the list of models 
+# to the streamlit interface so the user can see it. 
+# Or just add a "Debug: List Models" button in the sidebar.
+
+# Let's add a "Listar Modelos Disponíveis" button in the sidebar of `world_cloud.py`.
