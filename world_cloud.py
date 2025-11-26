@@ -1206,7 +1206,7 @@ with tab_npc:
                     if "Pequenilho" in raca_sel: race_en = "Halfling"
                     if "Anão" in raca_sel: race_en = "Dwarf"
                     
-                    prompt_img = f"Portrait of {gender_en} {race_en} {classe_sel}, {cultura_sel} style, {desc_vis}, detailed face, dark fantasy rpg art"
+                    prompt_img = f"D&D style portrait of a {gender_en} {race_en} {classe_sel}, {desc_vis}, detailed facial features, expressive eyes, strong fantasy mood, dramatic lighting, rich textures, high detail, hand-drawn look, subtle atmospheric background matching the creature’s origin — in the style of Greg Staples, hand drawn, fantasy, dynamic brushwork, d&d, packed with hidden detail, color, brushwork"
                     safe_prompt = urllib.parse.quote(prompt_img)
                     
                     # Seed Aleatória para garantir nova imagem sempre
