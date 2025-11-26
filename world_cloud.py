@@ -1195,7 +1195,9 @@ with tab_npc:
         
         with col_gen2:
             # Botão Gerar Imagem
-            desc_vis = st.text_input("Aparência Extra (ex: cicatriz):")
+            # Seletor de Modelo de Imagem
+            provider_img = st.selectbox("Motor de Imagem", ["Flux (Pollinations)", "Nano Banana (Gemini 2.5)"])
+
             if st.button("📸 Retrato (200px)"):
                 try:
                     gender_en = "Male" if genero_npc == "Masculino" else "Female"
@@ -1207,14 +1209,34 @@ with tab_npc:
                     if "Anão" in raca_sel: race_en = "Dwarf"
                     
                     prompt_img = f"D&D style portrait of a {gender_en} {race_en} {classe_sel}, {desc_vis}, detailed facial features, expressive eyes, strong fantasy mood, dramatic lighting, rich textures, high detail, hand-drawn look, subtle atmospheric background matching the creature’s origin — in the style of Greg Staples, hand drawn, fantasy, dynamic brushwork, d&d, packed with hidden detail, color, brushwork"
-                    safe_prompt = urllib.parse.quote(prompt_img)
                     
-                    # Seed Aleatória para garantir nova imagem sempre
-                    seed = random.randint(0, 999999)
+                    if provider_img == "Flux (Pollinations)":
+                        safe_prompt = urllib.parse.quote(prompt_img)
+                        seed = random.randint(0, 999999)
+                        url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux&seed={seed}"
+                        st.session_state.temp_npc_img = url
+                        st.rerun()
                     
-                    url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux&seed={seed}"
-                    st.session_state.temp_npc_img = url
-                    st.rerun()
+                    elif provider_img == "Nano Banana (Gemini 2.5)":
+                        if not api_key:
+                            st.warning("⚠️ Precisa da API Key configurada na barra lateral.")
+                        else:
+                            with st.spinner("Nano Banana está pintando..."):
+                                model_img = genai.GenerativeModel("gemini-2-5-flash-image")
+                                response = model_img.generate_content(prompt_img)
+                                
+                                # Tenta extrair a imagem da resposta (Inline Data)
+                                if response.parts and response.parts[0].inline_data:
+                                    img_data = response.parts[0].inline_data.data
+                                    # img_data já é bytes, precisamos converter para b64 para exibir html ou salvar
+                                    b64_img = base64.b64encode(img_data).decode('utf-8')
+                                    mime_type = response.parts[0].inline_data.mime_type
+                                    st.session_state.temp_npc_img = f"data:{mime_type};base64,{b64_img}"
+                                    st.rerun()
+                                else:
+                                    st.error("O modelo não retornou uma imagem válida. Tente novamente ou verifique a API Key.")
+                                    st.write(response.text) # Debug caso retorne texto de erro
+
                 except Exception as e: 
                     st.error(f"Erro Imagem: {e}")
 
