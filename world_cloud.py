@@ -1199,7 +1199,8 @@ with tab_npc:
             provider_img = st.selectbox("Motor de Imagem", [
                 "Flux (Pollinations)", 
                 "Gemini 2.5 Flash Image", 
-                "Nano Banana Pro (Preview)"
+                "Nano Banana Pro (Preview)",
+                "Gemini 2.0 Flash Exp (Image)"
             ])
             desc_vis = st.text_input("Aparência Extra (ex: cicatriz):")
 
@@ -1222,7 +1223,7 @@ with tab_npc:
                         st.session_state.temp_npc_img = url
                         st.rerun()
                     
-                    elif provider_img in ["Gemini 2.5 Flash Image", "Nano Banana Pro (Preview)"]:
+                    elif provider_img in ["Gemini 2.5 Flash Image", "Nano Banana Pro (Preview)", "Gemini 2.0 Flash Exp (Image)"]:
                         if not api_key:
                             st.warning("⚠️ Precisa da API Key configurada na barra lateral.")
                         else:
@@ -1230,6 +1231,8 @@ with tab_npc:
                             model_id = "gemini-2.5-flash-image"
                             if provider_img == "Nano Banana Pro (Preview)":
                                 model_id = "nano-banana-pro-preview"
+                            elif provider_img == "Gemini 2.0 Flash Exp (Image)":
+                                model_id = "gemini-2.0-flash-exp-image-generation"
 
                             with st.spinner(f"{provider_img} está pintando..."):
                                 model_img = genai.GenerativeModel(model_id)
