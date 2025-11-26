@@ -1335,7 +1335,10 @@ with tab_npc:
 # ABA 11: MONSTROS (NOVO)
 # ==============================================================================
 def carregar_templates_monstros():
-    """Lê o arquivo npcdesc.cfg e retorna uma lista de nomes de templates."""
+    """Lê o arquivo npcdesc.cfg e retorna uma lista de nomes de templates (com Cache)."""
+    if "cache_templates_monstros" in st.session_state:
+        return st.session_state["cache_templates_monstros"]
+        
     arquivo_cfg = "npcdesc.cfg"
     templates = []
     try:
@@ -1343,18 +1346,19 @@ def carregar_templates_monstros():
             for line in f:
                 line = line.strip()
                 if line.startswith("NPCTemplate"):
-                    # Extrai o nome do template (ex: NPCTemplate Moloch -> Moloch)
                     partes = line.split()
                     if len(partes) >= 2:
                         templates.append(partes[1])
+        templates = sorted(templates)
+        st.session_state["cache_templates_monstros"] = templates
+        return templates
     except Exception as e:
         st.error(f"Erro ao ler npcdesc.cfg: {e}")
-    return sorted(templates)
+        return []
 
 with tab_monstros:
     st.header("👹 Bestiário & Monstros")
     
-    # Carrega templates
     lista_templates = carregar_templates_monstros()
     
     c_mon_form, c_mon_view = st.columns([1, 1])
@@ -1365,25 +1369,45 @@ with tab_monstros:
         # Seletor de Template
         template_sel = st.selectbox("Escolher Template (npcdesc.cfg)", ["Personalizado"] + lista_templates)
         
-        # Preenche nome se selecionar template
-        nome_inicial = ""
+        # Lógica de Preenchimento Automático com IA
         if template_sel != "Personalizado":
-            nome_inicial = template_sel
-            
-        nome_monstro = st.text_input("Nome da Criatura", value=nome_inicial)
-        desc_visual_monstro = st.text_area("Descrição Visual (Aparência)", height=150, placeholder="Ex: A colossal dragon made of magma and obsidian, glowing eyes, smoke coming from nostrils...")
+            # Verifica se mudou a seleção para gerar nova descrição
+            if "last_monster_sel" not in st.session_state or st.session_state.last_monster_sel != template_sel:
+                st.session_state.last_monster_sel = template_sel
+                
+                # Gera descrição com IA
+                if api_key:
+                    try:
+                        with st.spinner(f"Imaginando {template_sel}..."):
+                            model = genai.GenerativeModel(modelo_escolhido)
+                            prompt_desc = f"Descreva visualmente em 1 parágrafo curto (inglês) a aparência de um monstro de RPG chamado '{template_sel}'. Foco em detalhes físicos para gerar uma imagem."
+                            desc_ia = model.generate_content(prompt_desc).text.strip()
+                            st.session_state.temp_monstro_desc = desc_ia
+                    except Exception as e:
+                        st.warning(f"Erro ao gerar descrição: {e}")
+                        st.session_state.temp_monstro_desc = ""
+                else:
+                    st.session_state.temp_monstro_desc = f"A {template_sel} creature."
+        else:
+            if "last_monster_sel" in st.session_state and st.session_state.last_monster_sel != "Personalizado":
+                 st.session_state.last_monster_sel = "Personalizado"
+                 st.session_state.temp_monstro_desc = ""
+
+        # Garante que a variável existe
+        if "temp_monstro_desc" not in st.session_state: st.session_state.temp_monstro_desc = ""
+
+        nome_monstro = st.text_input("Nome da Criatura", value=template_sel if template_sel != "Personalizado" else "")
+        desc_visual_monstro = st.text_area("Descrição Visual (Aparência)", value=st.session_state.temp_monstro_desc, height=150, placeholder="Ex: A colossal dragon made of magma...")
         
         if st.button("🎨 Gerar Arte do Monstro (200x200)", type="primary"):
             if not desc_visual_monstro:
                 st.warning("Descreva a criatura primeiro!")
             else:
                 try:
-                    # Prompt Específico Solicitado
                     prompt_monstro = f"{desc_visual_monstro}, detailed facial features, expressive eyes, strong fantasy mood, dramatic lighting, rich textures, high detail, hand-drawn look, subtle atmospheric background matching the creature’s origin — in the style of Greg Staples, hand drawn, fantasy, dynamic brushwork, d&d, packed with hidden detail, color, brushwork"
                     
                     safe_prompt = urllib.parse.quote(prompt_monstro)
                     seed = random.randint(0, 999999)
-                    # Usando Flux (Pollinations) com resolução 200x200
                     url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux&seed={seed}"
                     
                     st.session_state.temp_monstro_img = url
@@ -1395,7 +1419,14 @@ with tab_monstros:
         st.subheader("Visualização")
         if "temp_monstro_img" in st.session_state and st.session_state.temp_monstro_img:
             st.image(st.session_state.temp_monstro_img, caption="Arte Gerada (Flux 200x200)", width=200)
-            st.markdown(f"[Baixar Imagem]({st.session_state.temp_monstro_img})")
+            
+            c_down, c_del = st.columns([1, 1])
+            with c_down:
+                st.markdown(f"[📥 Baixar]({st.session_state.temp_monstro_img})")
+            with c_del:
+                if st.button("❌ Apagar"):
+                    st.session_state.temp_monstro_img = ""
+                    st.rerun()
         else:
             st.info("A imagem aparecerá aqui.")
 
