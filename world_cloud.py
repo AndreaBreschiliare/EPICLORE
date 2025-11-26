@@ -511,10 +511,10 @@ with st.sidebar:
 abas = [
     "✍️ Editor", "🧠 Chat", "⚖️ Auditoria", "💡 Sugestões", "⚡ Incoerências", 
     "📚 Glossário", "📉 Timeline", "📊 Dashboards", "🗺️ Mapa", "🎲 NPCs", 
-    "📜 Quests", "🕸️ Teia", "🎮 EpicBrain", "⚙️ Epic Server"
+    "👹 Monstros", "📜 Quests", "🕸️ Teia", "🎮 EpicBrain", "⚙️ Epic Server"
 ]
 
-tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_quests, tab_teia, tab_epicbrain, tab_epicserver = st.tabs(abas)
+tab_editor, tab_chat, tab_aval, tab_sugestao, tab_erros, tab_glossario, tab_timeline, tab_dashboard, tab_mapa, tab_npc, tab_monstros, tab_quests, tab_teia, tab_epicbrain, tab_epicserver = st.tabs(abas)
 
 # ==============================================================================
 # ABA 1: EDITOR
@@ -1332,7 +1332,46 @@ with tab_npc:
                 st.session_state.npcs.pop(real_index)
                 st.rerun()
 # ==============================================================================
-# ABA 11: QUESTS (SEPARADA)
+# ABA 11: MONSTROS (NOVO)
+# ==============================================================================
+with tab_monstros:
+    st.header("👹 Bestiário & Monstros")
+    
+    c_mon_form, c_mon_view = st.columns([1, 1])
+    
+    with c_mon_form:
+        st.subheader("Criar Criatura")
+        nome_monstro = st.text_input("Nome da Criatura")
+        desc_visual_monstro = st.text_area("Descrição Visual (Aparência)", height=150, placeholder="Ex: A colossal dragon made of magma and obsidian, glowing eyes, smoke coming from nostrils...")
+        
+        if st.button("🎨 Gerar Arte do Monstro", type="primary"):
+            if not desc_visual_monstro:
+                st.warning("Descreva a criatura primeiro!")
+            else:
+                try:
+                    # Prompt Específico Solicitado
+                    prompt_monstro = f"{desc_visual_monstro}, detailed facial features, expressive eyes, strong fantasy mood, dramatic lighting, rich textures, high detail, hand-drawn look, subtle atmospheric background matching the creature’s origin — in the style of Greg Staples, hand drawn, fantasy, dynamic brushwork, d&d, packed with hidden detail, color, brushwork"
+                    
+                    safe_prompt = urllib.parse.quote(prompt_monstro)
+                    seed = random.randint(0, 999999)
+                    # Usando Flux (Pollinations) como padrão para monstros
+                    url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=400&height=400&nologo=true&model=flux&seed={seed}"
+                    
+                    st.session_state.temp_monstro_img = url
+                    st.success("Monstro invocado!")
+                except Exception as e:
+                    st.error(f"Erro ao gerar monstro: {e}")
+
+    with c_mon_view:
+        st.subheader("Visualização")
+        if "temp_monstro_img" in st.session_state and st.session_state.temp_monstro_img:
+            st.image(st.session_state.temp_monstro_img, caption="Arte Gerada (Flux)", use_container_width=True)
+            st.markdown(f"[Baixar Imagem]({st.session_state.temp_monstro_img})")
+        else:
+            st.info("A imagem aparecerá aqui.")
+
+# ==============================================================================
+# ABA 12: QUESTS (SEPARADA)
 # ==============================================================================
 with tab_quests:
     st.header("📜 Mural de Missões")
