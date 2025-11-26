@@ -1195,16 +1195,7 @@ with tab_npc:
         
         with col_gen2:
             # Botão Gerar Imagem
-            # Seletor de Modelo de Imagem
-            provider_img = st.selectbox("Motor de Imagem", [
-                "Flux (Pollinations)", 
-                "Gemini 2.5 Flash Image", 
-                "Gemini 2.5 Flash Image (Preview)",
-                "Nano Banana Pro (Preview)",
-                "Gemini 2.0 Flash Exp (Image)"
-            ])
             desc_vis = st.text_input("Aparência Extra (ex: cicatriz):")
-
             if st.button("📸 Retrato (200px)"):
                 try:
                     gender_en = "Male" if genero_npc == "Masculino" else "Female"
@@ -1216,43 +1207,14 @@ with tab_npc:
                     if "Anão" in raca_sel: race_en = "Dwarf"
                     
                     prompt_img = f"D&D style portrait of a {gender_en} {race_en} {classe_sel}, {desc_vis}, detailed facial features, expressive eyes, strong fantasy mood, dramatic lighting, rich textures, high detail, hand-drawn look, subtle atmospheric background matching the creature’s origin — in the style of Greg Staples, hand drawn, fantasy, dynamic brushwork, d&d, packed with hidden detail, color, brushwork"
+                    safe_prompt = urllib.parse.quote(prompt_img)
                     
-                    if provider_img == "Flux (Pollinations)":
-                        safe_prompt = urllib.parse.quote(prompt_img)
-                        seed = random.randint(0, 999999)
-                        url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux&seed={seed}"
-                        st.session_state.temp_npc_img = url
-                        st.rerun()
+                    # Seed Aleatória para garantir nova imagem sempre
+                    seed = random.randint(0, 999999)
                     
-                    else:
-                        if not api_key:
-                            st.warning("⚠️ Precisa da API Key configurada na barra lateral.")
-                        else:
-                            # Define o ID do modelo correto
-                            model_id = "gemini-2.5-flash-image" # Padrão
-                            
-                            if provider_img == "Gemini 2.5 Flash Image (Preview)":
-                                model_id = "gemini-2.5-flash-image-preview"
-                            elif provider_img == "Nano Banana Pro (Preview)":
-                                model_id = "nano-banana-pro-preview"
-                            elif provider_img == "Gemini 2.0 Flash Exp (Image)":
-                                model_id = "gemini-2.0-flash-exp-image-generation"
-
-                            with st.spinner(f"{provider_img} está pintando..."):
-                                model_img = genai.GenerativeModel(model_id)
-                                response = model_img.generate_content(prompt_img)
-                                
-                                # Tenta extrair a imagem da resposta (Inline Data)
-                                if response.parts and response.parts[0].inline_data:
-                                    img_data = response.parts[0].inline_data.data
-                                    b64_img = base64.b64encode(img_data).decode('utf-8')
-                                    mime_type = response.parts[0].inline_data.mime_type
-                                    st.session_state.temp_npc_img = f"data:{mime_type};base64,{b64_img}"
-                                    st.rerun()
-                                else:
-                                    st.error("O modelo não retornou uma imagem válida.")
-                                    st.write(response.text)
-
+                    url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux&seed={seed}"
+                    st.session_state.temp_npc_img = url
+                    st.rerun()
                 except Exception as e: 
                     st.error(f"Erro Imagem: {e}")
 
