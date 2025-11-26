@@ -1197,6 +1197,7 @@ with tab_npc:
             # Botão Gerar Imagem
             # Seletor de Modelo de Imagem
             provider_img = st.selectbox("Motor de Imagem", ["Flux (Pollinations)", "Nano Banana (Gemini 2.5)"])
+            desc_vis = st.text_input("Aparência Extra (ex: cicatriz):")
 
             if st.button("📸 Retrato (200px)"):
                 try:
