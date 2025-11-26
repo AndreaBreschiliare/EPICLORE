@@ -1199,6 +1199,7 @@ with tab_npc:
             provider_img = st.selectbox("Motor de Imagem", [
                 "Flux (Pollinations)", 
                 "Gemini 2.5 Flash Image", 
+                "Gemini 2.5 Flash Image (Preview)",
                 "Nano Banana Pro (Preview)",
                 "Gemini 2.0 Flash Exp (Image)"
             ])
@@ -1223,13 +1224,16 @@ with tab_npc:
                         st.session_state.temp_npc_img = url
                         st.rerun()
                     
-                    elif provider_img in ["Gemini 2.5 Flash Image", "Nano Banana Pro (Preview)", "Gemini 2.0 Flash Exp (Image)"]:
+                    else:
                         if not api_key:
                             st.warning("⚠️ Precisa da API Key configurada na barra lateral.")
                         else:
                             # Define o ID do modelo correto
-                            model_id = "gemini-2.5-flash-image"
-                            if provider_img == "Nano Banana Pro (Preview)":
+                            model_id = "gemini-2.5-flash-image" # Padrão
+                            
+                            if provider_img == "Gemini 2.5 Flash Image (Preview)":
+                                model_id = "gemini-2.5-flash-image-preview"
+                            elif provider_img == "Nano Banana Pro (Preview)":
                                 model_id = "nano-banana-pro-preview"
                             elif provider_img == "Gemini 2.0 Flash Exp (Image)":
                                 model_id = "gemini-2.0-flash-exp-image-generation"
