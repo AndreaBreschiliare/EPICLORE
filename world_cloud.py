@@ -1334,17 +1334,46 @@ with tab_npc:
 # ==============================================================================
 # ABA 11: MONSTROS (NOVO)
 # ==============================================================================
+def carregar_templates_monstros():
+    """Lê o arquivo npcdesc.cfg e retorna uma lista de nomes de templates."""
+    arquivo_cfg = "npcdesc.cfg"
+    templates = []
+    try:
+        with open(arquivo_cfg, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("NPCTemplate"):
+                    # Extrai o nome do template (ex: NPCTemplate Moloch -> Moloch)
+                    partes = line.split()
+                    if len(partes) >= 2:
+                        templates.append(partes[1])
+    except Exception as e:
+        st.error(f"Erro ao ler npcdesc.cfg: {e}")
+    return sorted(templates)
+
 with tab_monstros:
     st.header("👹 Bestiário & Monstros")
+    
+    # Carrega templates
+    lista_templates = carregar_templates_monstros()
     
     c_mon_form, c_mon_view = st.columns([1, 1])
     
     with c_mon_form:
         st.subheader("Criar Criatura")
-        nome_monstro = st.text_input("Nome da Criatura")
+        
+        # Seletor de Template
+        template_sel = st.selectbox("Escolher Template (npcdesc.cfg)", ["Personalizado"] + lista_templates)
+        
+        # Preenche nome se selecionar template
+        nome_inicial = ""
+        if template_sel != "Personalizado":
+            nome_inicial = template_sel
+            
+        nome_monstro = st.text_input("Nome da Criatura", value=nome_inicial)
         desc_visual_monstro = st.text_area("Descrição Visual (Aparência)", height=150, placeholder="Ex: A colossal dragon made of magma and obsidian, glowing eyes, smoke coming from nostrils...")
         
-        if st.button("🎨 Gerar Arte do Monstro", type="primary"):
+        if st.button("🎨 Gerar Arte do Monstro (200x200)", type="primary"):
             if not desc_visual_monstro:
                 st.warning("Descreva a criatura primeiro!")
             else:
@@ -1354,8 +1383,8 @@ with tab_monstros:
                     
                     safe_prompt = urllib.parse.quote(prompt_monstro)
                     seed = random.randint(0, 999999)
-                    # Usando Flux (Pollinations) como padrão para monstros
-                    url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=400&height=400&nologo=true&model=flux&seed={seed}"
+                    # Usando Flux (Pollinations) com resolução 200x200
+                    url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=200&height=200&nologo=true&model=flux&seed={seed}"
                     
                     st.session_state.temp_monstro_img = url
                     st.success("Monstro invocado!")
@@ -1365,7 +1394,7 @@ with tab_monstros:
     with c_mon_view:
         st.subheader("Visualização")
         if "temp_monstro_img" in st.session_state and st.session_state.temp_monstro_img:
-            st.image(st.session_state.temp_monstro_img, caption="Arte Gerada (Flux)", use_container_width=True)
+            st.image(st.session_state.temp_monstro_img, caption="Arte Gerada (Flux 200x200)", width=200)
             st.markdown(f"[Baixar Imagem]({st.session_state.temp_monstro_img})")
         else:
             st.info("A imagem aparecerá aqui.")
