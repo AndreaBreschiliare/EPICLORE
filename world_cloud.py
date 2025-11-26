@@ -491,14 +491,6 @@ with st.sidebar:
             if lista_modelos:
                 lista_modelos.sort(key=lambda x: "flash" not in x)
                 modelo_escolhido = st.selectbox("Cérebro da IA:", lista_modelos, index=0)
-            
-            if st.button("🕵️ Listar Todos os Modelos (Debug)"):
-                st.write("--- Modelos Disponíveis ---")
-                for m in genai.list_models():
-                    st.write(f"**{m.name}**")
-                    st.caption(f"Métodos: {m.supported_generation_methods}")
-                st.write("---------------------------")
-
         except Exception as e: st.error(f"Erro ao listar modelos: {e}")
 
     st.divider()
@@ -1204,7 +1196,11 @@ with tab_npc:
         with col_gen2:
             # Botão Gerar Imagem
             # Seletor de Modelo de Imagem
-            provider_img = st.selectbox("Motor de Imagem", ["Flux (Pollinations)", "Nano Banana (Gemini 2.5)"])
+            provider_img = st.selectbox("Motor de Imagem", [
+                "Flux (Pollinations)", 
+                "Gemini 2.5 Flash Image", 
+                "Nano Banana Pro (Preview)"
+            ])
             desc_vis = st.text_input("Aparência Extra (ex: cicatriz):")
 
             if st.button("📸 Retrato (200px)"):
@@ -1226,25 +1222,29 @@ with tab_npc:
                         st.session_state.temp_npc_img = url
                         st.rerun()
                     
-                    elif provider_img == "Nano Banana (Gemini 2.5)":
+                    elif provider_img in ["Gemini 2.5 Flash Image", "Nano Banana Pro (Preview)"]:
                         if not api_key:
                             st.warning("⚠️ Precisa da API Key configurada na barra lateral.")
                         else:
-                            with st.spinner("Nano Banana está pintando..."):
-                                model_img = genai.GenerativeModel("gemini-2-5-flash-image")
+                            # Define o ID do modelo correto
+                            model_id = "gemini-2.5-flash-image"
+                            if provider_img == "Nano Banana Pro (Preview)":
+                                model_id = "nano-banana-pro-preview"
+
+                            with st.spinner(f"{provider_img} está pintando..."):
+                                model_img = genai.GenerativeModel(model_id)
                                 response = model_img.generate_content(prompt_img)
                                 
                                 # Tenta extrair a imagem da resposta (Inline Data)
                                 if response.parts and response.parts[0].inline_data:
                                     img_data = response.parts[0].inline_data.data
-                                    # img_data já é bytes, precisamos converter para b64 para exibir html ou salvar
                                     b64_img = base64.b64encode(img_data).decode('utf-8')
                                     mime_type = response.parts[0].inline_data.mime_type
                                     st.session_state.temp_npc_img = f"data:{mime_type};base64,{b64_img}"
                                     st.rerun()
                                 else:
-                                    st.error("O modelo não retornou uma imagem válida. Tente novamente ou verifique a API Key.")
-                                    st.write(response.text) # Debug caso retorne texto de erro
+                                    st.error("O modelo não retornou uma imagem válida.")
+                                    st.write(response.text)
 
                 except Exception as e: 
                     st.error(f"Erro Imagem: {e}")
