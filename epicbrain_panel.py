@@ -1,14 +1,14 @@
 """
-EpicBrain Panel - Painel de Controle do Servidor UO
-Componentes visuais para monitoramento e gestão
+EpicBrain Panel - UO Server Control Panel
+Refactored for Clean Code, DRY, and Modern Style.
 """
 
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
 import pandas as pd
 from typing import Dict, Any, List
+
 from epicbrain_client import EpicBrainClient
 from epicbrain_config import (
     MAX_LOCATIONS_DISPLAY, 
@@ -18,438 +18,325 @@ from epicbrain_config import (
     AUTO_REFRESH_ENABLED,
     REFRESH_INTERVAL
 )
+import ui_components as ui
 
-def render_metric_card(label: str, value: Any, delta: str = None, help_text: str = None):
-    """Renderiza um card de métrica"""
-    st.metric(label=label, value=value, delta=delta, help=help_text)
+# ==============================================================================
+# SUB-RENDERERS (Single Responsibility Principle)
+# ==============================================================================
+
+def _render_executive_metrics(metrics: Dict[str, Any]):
+    """Renders the top row metrics for the dashboard."""
+    c1, c2, c3, c4 = st.columns(4)
+    
+    ui.render_metric_card(
+        "Active Players",
+        metrics.get('active_today', 0),
+        help_text="Unique players in period",
+        col=c1
+    )
+    ui.render_metric_card(
+        "Peak Activity",
+        f"{metrics.get('peak_players', 0)} ({metrics.get('peak_hour', 'N/A')})",
+        help_text="Max concurrent players",
+        col=c2
+    )
+    ui.render_metric_card(
+        "Avg Session",
+        metrics.get('avg_session_duration', 'N/A'),
+        help_text="Average play time",
+        col=c3
+    )
+    ui.render_metric_card(
+        "Total Logs",
+        metrics.get('total_logs', 0),
+        help_text="Processed log entries",
+        col=c4
+    )
+
+def _render_alerts_section(alerts_data: Dict[str, Any]):
+    """Renders the system alerts section."""
+    alerts = alerts_data.get('alerts', [])
+    if not alerts:
+        return
+
+    st.subheader("🚨 System Alerts")
+    for alert in alerts:
+        severity = alert.get('severity', 'info')
+        msg = alert.get('message', '')
+
+        if severity == 'high':
+            st.error(f"🔴 {msg}")
+        elif severity == 'medium':
+            st.warning(f"🟡 {msg}")
+        else:
+            st.info(f"🔵 {msg}")
+    st.divider()
+
+def _render_top_locations_chart(location_metrics: Dict[str, Any]):
+    """Renders the bar chart for top locations."""
+    if not location_metrics or not location_metrics.get('top_locations'):
+        st.info("No location data available.")
+        return
+
+    df = pd.DataFrame(location_metrics['top_locations'])
+    fig = px.bar(
+        df, x='visits', y='name', orientation='h',
+        title=f"Top {len(df)} Visited Locations",
+        labels={'visits': 'Visits', 'name': 'Location'},
+        color='unique_players', color_continuous_scale='Viridis'
+    )
+    fig.update_layout(height=CHART_HEIGHT, template=CHART_THEME)
+    st.plotly_chart(fig, use_container_width=True)
+
+def _render_activity_chart(activity_metrics: Dict[str, Any]):
+    """Renders the line chart for hourly activity."""
+    if not activity_metrics or not activity_metrics.get('hourly'):
+        st.info("No activity data available.")
+        return
+
+    df = pd.DataFrame(activity_metrics['hourly'])
+    fig = px.line(
+        df, x='hour', y='players',
+        title="Hourly Activity",
+        labels={'hour': 'Hour', 'players': 'Players'},
+        markers=True
+    )
+    fig.update_layout(height=CHART_HEIGHT, template=CHART_THEME)
+    st.plotly_chart(fig, use_container_width=True)
+
+def _render_network_graph(network_data: Dict[str, Any]):
+    """Renders the social network graph using Plotly."""
+    if not network_data or not network_data.get('nodes') or not network_data.get('edges'):
+        st.info("No network data available.")
+        return
+
+    nodes = network_data['nodes']
+    edges = network_data['edges']
+    
+    # Edges
+    edge_trace = []
+    import math
+    for edge in edges:
+        # Simple circular layout simulation logic
+        # In a real app, you might use networkx layout or similar
+        source_idx = next((i for i, n in enumerate(nodes) if n['id'] == edge['source']), 0)
+        target_idx = next((i for i, n in enumerate(nodes) if n['id'] == edge['target']), 0)
+        
+        angle_s = 2 * math.pi * source_idx / len(nodes)
+        angle_t = 2 * math.pi * target_idx / len(nodes)
+        
+        x0, y0 = math.cos(angle_s), math.sin(angle_s)
+        x1, y1 = math.cos(angle_t), math.sin(angle_t)
+
+        edge_trace.append(go.Scatter(
+            x=[x0, x1, None], y=[y0, y1, None],
+            mode='lines', line=dict(width=edge['weight']/5, color='#888'),
+            hoverinfo='none', showlegend=False
+        ))
+    
+    # Nodes
+    node_x = [math.cos(2 * math.pi * i / len(nodes)) for i in range(len(nodes))]
+    node_y = [math.sin(2 * math.pi * i / len(nodes)) for i in range(len(nodes))]
+    node_text = [n['id'] for n in nodes]
+    node_size = [n['size'] for n in nodes]
+    
+    node_trace = go.Scatter(
+        x=node_x, y=node_y, mode='markers+text',
+        text=node_text, textposition="top center",
+        marker=dict(size=node_size, color='#1f77b4', line=dict(width=2, color='white')),
+        hovertemplate='<b>%{text}</b><extra></extra>'
+    )
+    
+    fig = go.Figure(data=edge_trace + [node_trace])
+    fig.update_layout(
+        title="Player Interaction Graph", showlegend=False, hovermode='closest',
+        height=600, xaxis=dict(visible=False), yaxis=dict(visible=False),
+        template=CHART_THEME
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+# ==============================================================================
+# TAB RENDERERS
+# ==============================================================================
 
 def render_dashboard_tab(client: EpicBrainClient):
-    """
-    Renderiza a aba de Dashboard Executivo
-    """
-    st.header("📊 Dashboard Executivo")
+    """Executive Dashboard Tab."""
+    st.header("📊 Executive Dashboard")
     
-    # Filtro de período
-    col_filter1, col_filter2 = st.columns([3, 1])
-    with col_filter1:
-        days = st.selectbox(
-            "Período de análise",
-            options=[1, 7, 14, 30],
-            index=1,
-            format_func=lambda x: f"Últimos {x} dias" if x > 1 else "Hoje"
-        )
-    with col_filter2:
-        if st.button("🔄 Atualizar", use_container_width=True):
+    # Controls
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        days = st.selectbox("Timeframe", [1, 7, 14, 30], index=1,
+                            format_func=lambda x: f"Last {x} days" if x > 1 else "Today")
+    with c2:
+        if st.button("🔄 Refresh Data", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-    
-    # Obter dados
-    player_metrics = client.get_player_metrics(days=days)
-    location_metrics = client.get_location_metrics(limit=MAX_LOCATIONS_DISPLAY)
+
+    # Data Fetching
+    p_metrics = client.get_player_metrics(days=days)
+    l_metrics = client.get_location_metrics(limit=MAX_LOCATIONS_DISPLAY)
     alerts = client.get_alerts()
-    
-    if not player_metrics:
-        st.warning("⚠️ Não foi possível carregar os dados. Verifique a conexão com a API.")
+    a_metrics = client.get_activity_metrics(days=days)
+
+    if not p_metrics:
+        st.warning("⚠️ Unable to load metrics.")
         return
-    
-    # === SEÇÃO 1: CARDS DE MÉTRICAS ===
-    st.subheader("📈 Métricas Principais")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        render_metric_card(
-            "Jogadores Ativos",
-            player_metrics.get('active_today', 0),
-            help_text="Jogadores únicos no período selecionado"
-        )
-    
-    with col2:
-        render_metric_card(
-            "Pico de Atividade",
-            f"{player_metrics.get('peak_players', 0)} ({player_metrics.get('peak_hour', 'N/A')})",
-            help_text="Maior número de jogadores simultâneos"
-        )
-    
-    with col3:
-        render_metric_card(
-            "Sessão Média",
-            player_metrics.get('avg_session_duration', 'N/A'),
-            help_text="Duração média das sessões"
-        )
-    
-    with col4:
-        render_metric_card(
-            "Total de Logs",
-            player_metrics.get('total_logs', 0),
-            help_text="Total de registros processados"
-        )
-    
+
+    # Rendering
+    _render_executive_metrics(p_metrics)
     st.divider()
-    
-    # === SEÇÃO 2: ALERTAS ===
-    if alerts and alerts.get('alerts'):
-        st.subheader("🚨 Alertas do Sistema")
-        
-        for alert in alerts['alerts']:
-            severity = alert.get('severity', 'info')
-            message = alert.get('message', '')
-            
-            if severity == 'high':
-                st.error(f"🔴 {message}")
-            elif severity == 'medium':
-                st.warning(f"🟡 {message}")
-            elif severity == 'low':
-                st.info(f"🔵 {message}")
-            else:
-                st.success(f"✅ {message}")
-        
-        st.divider()
-    
-    # === SEÇÃO 3: GRÁFICOS ===
-    col_chart1, col_chart2 = st.columns(2)
-    
-    with col_chart1:
-        st.subheader("📍 Top Localizações")
-        
-        if location_metrics and location_metrics.get('top_locations'):
-            df_locations = pd.DataFrame(location_metrics['top_locations'])
-            
-            fig = px.bar(
-                df_locations,
-                x='visits',
-                y='name',
-                orientation='h',
-                title=f"Top {len(df_locations)} Locais Mais Visitados",
-                labels={'visits': 'Visitas', 'name': 'Local'},
-                color='unique_players',
-                color_continuous_scale='Viridis'
-            )
-            fig.update_layout(height=CHART_HEIGHT, template=CHART_THEME)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Nenhum dado de localização disponível")
-    
-    with col_chart2:
-        st.subheader("⏰ Atividade por Hora")
-        
-        activity_metrics = client.get_activity_metrics(days=days)
-        
-        if activity_metrics and activity_metrics.get('hourly'):
-            df_hourly = pd.DataFrame(activity_metrics['hourly'])
-            
-            fig = px.line(
-                df_hourly,
-                x='hour',
-                y='players',
-                title="Jogadores por Hora",
-                labels={'hour': 'Hora', 'players': 'Jogadores'},
-                markers=True
-            )
-            fig.update_layout(height=CHART_HEIGHT, template=CHART_THEME)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Nenhum dado de atividade disponível")
-    
-    # === SEÇÃO 4: TABELA DETALHADA ===
-    with st.expander("📋 Detalhes de Localizações"):
-        if location_metrics and location_metrics.get('top_locations'):
-            df_locations = pd.DataFrame(location_metrics['top_locations'])
-            st.dataframe(
-                df_locations,
-                use_container_width=True,
+    _render_alerts_section(alerts)
+
+    c_chart1, c_chart2 = st.columns(2)
+    with c_chart1:
+        st.subheader("📍 Top Locations")
+        _render_top_locations_chart(l_metrics)
+    with c_chart2:
+        st.subheader("⏰ Activity Trends")
+        _render_activity_chart(a_metrics)
+
+    with st.expander("📋 Detailed Location Data"):
+        if l_metrics and l_metrics.get('top_locations'):
+            ui.render_dataframe_with_search(
+                pd.DataFrame(l_metrics['top_locations']),
+                search_col="name",
+                widget_id="dash_locations",
                 column_config={
-                    "name": "Local",
-                    "visits": st.column_config.NumberColumn("Visitas", format="%d"),
-                    "unique_players": st.column_config.NumberColumn("Jogadores Únicos", format="%d")
+                    "name": "Location",
+                    "visits": st.column_config.NumberColumn("Visits", format="%d"),
+                    "unique_players": st.column_config.NumberColumn("Unique Players", format="%d")
                 }
             )
 
 def render_activity_map_tab(client: EpicBrainClient):
-    """
-    Renderiza a aba de Mapa de Atividade
-    """
-    st.header("🗺️ Mapa de Atividade")
+    """Activity Map Tab."""
+    st.header("🗺️ Activity Map")
     
-    # Obter dados
-    location_metrics = client.get_location_metrics(limit=50)
-    
-    if not location_metrics or not location_metrics.get('top_locations'):
-        st.warning("⚠️ Nenhum dado de localização disponível")
+    l_metrics = client.get_location_metrics(limit=50)
+    if not l_metrics or not l_metrics.get('top_locations'):
+        st.warning("No location data found.")
         return
+
+    df = pd.DataFrame(l_metrics['top_locations'])
     
-    df_locations = pd.DataFrame(location_metrics['top_locations'])
-    
-    # === SEÇÃO 1: ANÁLISE DE POPULARIDADE ===
-    st.subheader("📊 Análise de Popularidade")
-    
-    # Classificar áreas
-    max_visits = df_locations['visits'].max()
-    df_locations['categoria'] = df_locations['visits'].apply(
-        lambda x: 'Popular' if x > max_visits * 0.6 
-        else 'Média' if x > max_visits * 0.3 
-        else 'Baixa'
+    # Logic
+    max_visits = df['visits'].max()
+    df['category'] = df['visits'].apply(
+        lambda x: 'Popular' if x > max_visits * 0.6 else 'Average' if x > max_visits * 0.3 else 'Low'
     )
     
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        popular = len(df_locations[df_locations['categoria'] == 'Popular'])
-        st.metric("🟢 Áreas Populares", popular)
-    
-    with col2:
-        media = len(df_locations[df_locations['categoria'] == 'Média'])
-        st.metric("🟡 Áreas Médias", media)
-    
-    with col3:
-        baixa = len(df_locations[df_locations['categoria'] == 'Baixa'])
-        st.metric("🔴 Áreas com Baixa Atividade", baixa)
+    # KPI Summary
+    c1, c2, c3 = st.columns(3)
+    ui.render_metric_card("🟢 Popular Zones", len(df[df['category'] == 'Popular']), col=c1)
+    ui.render_metric_card("🟡 Average Zones", len(df[df['category'] == 'Average']), col=c2)
+    ui.render_metric_card("🔴 Quiet Zones", len(df[df['category'] == 'Low']), col=c3)
     
     st.divider()
     
-    # === SEÇÃO 2: VISUALIZAÇÃO ===
-    st.subheader("📈 Distribuição de Atividade")
+    # Charts
+    st.subheader("📈 Distribution")
+    fig = px.pie(df, values='visits', names='name', title="Visit Distribution", hole=0.4)
+    fig.update_layout(height=500, template=CHART_THEME)
+    st.plotly_chart(fig, use_container_width=True)
     
-    # Gráfico de pizza
-    fig_pie = px.pie(
-        df_locations,
-        values='visits',
-        names='name',
-        title="Distribuição de Visitas por Local",
-        hole=0.4
-    )
-    fig_pie.update_layout(height=500, template=CHART_THEME)
-    st.plotly_chart(fig_pie, use_container_width=True)
-    
-    # === SEÇÃO 3: TABELA COMPLETA ===
-    st.subheader("📋 Todas as Localizações")
-    
-    st.dataframe(
-        df_locations,
-        use_container_width=True,
+    st.subheader("📋 All Locations")
+    ui.render_dataframe_with_search(
+        df, "name",
+        widget_id="map_locations",
         column_config={
-            "name": "Local",
-            "visits": st.column_config.NumberColumn("Visitas", format="%d"),
-            "unique_players": st.column_config.NumberColumn("Jogadores Únicos", format="%d"),
-            "categoria": st.column_config.SelectboxColumn(
-                "Categoria",
-                options=['Popular', 'Média', 'Baixa']
-            )
+            "name": "Location",
+            "visits": st.column_config.NumberColumn("Visits"),
+            "category": st.column_config.SelectboxColumn("Category", options=['Popular', 'Average', 'Low'])
         }
     )
 
 def render_social_insights_tab(client: EpicBrainClient):
-    """
-    Renderiza a aba de Insights Sociais
-    """
-    st.header("💬 Insights Sociais")
+    """Social Insights Tab."""
+    st.header("💬 Social Insights")
     
-    # Controles
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        min_interactions = st.slider(
-            "Mínimo de interações para exibir",
-            min_value=1,
-            max_value=20,
-            value=MIN_INTERACTIONS_NETWORK,
-            help="Filtrar conexões com menos interações"
-        )
-    with col2:
-        if st.button("🔄 Atualizar", use_container_width=True, key="social_refresh"):
-            st.cache_data.clear()
-            st.rerun()
+    c1, c2 = st.columns([3, 1])
+    min_int = c1.slider("Min Interactions", 1, 20, MIN_INTERACTIONS_NETWORK)
+    if c2.button("🔄 Refresh", key="social_refresh", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+    s_metrics = client.get_social_metrics(min_interactions=min_int)
+    net_data = client.get_network_graph(min_interactions=min_int)
     
-    # Obter dados
-    social_metrics = client.get_social_metrics(min_interactions=min_interactions)
-    network_data = client.get_network_graph(min_interactions=min_interactions)
-    
-    if not social_metrics:
-        st.warning("⚠️ Não foi possível carregar dados sociais")
+    if not s_metrics:
+        st.warning("No social data available.")
         return
-    
-    # === SEÇÃO 1: MÉTRICAS GERAIS ===
-    st.subheader("📊 Métricas Sociais")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric(
-            "Jogadores Únicos",
-            social_metrics.get('unique_players', 0)
-        )
-    
-    with col2:
-        st.metric(
-            "Total de Interações",
-            social_metrics.get('total_interactions', 0)
-        )
-    
-    with col3:
-        interactions = social_metrics.get('interactions', [])
-        st.metric(
-            "Conexões Fortes",
-            len(interactions),
-            help=f"Pares com {min_interactions}+ interações"
-        )
+        
+    # Metrics
+    c1, c2, c3 = st.columns(3)
+    ui.render_metric_card("Unique Players", s_metrics.get('unique_players', 0), col=c1)
+    ui.render_metric_card("Total Interactions", s_metrics.get('total_interactions', 0), col=c2)
+    ui.render_metric_card("Strong Connections", len(s_metrics.get('interactions', [])),
+                          help_text=f"Pairs with >{min_int} interactions", col=c3)
+
+    st.divider()
+    st.subheader("🕸️ Network Graph")
+    _render_network_graph(net_data)
     
     st.divider()
-    
-    # === SEÇÃO 2: REDE DE INTERAÇÕES ===
-    st.subheader("🕸️ Rede de Interações")
-    
-    if network_data and network_data.get('nodes') and network_data.get('edges'):
-        nodes = network_data['nodes']
-        edges = network_data['edges']
-        
-        # Criar grafo com Plotly
-        edge_trace = []
-        for edge in edges:
-            # Encontrar posições dos nós (simuladas)
-            source_idx = next((i for i, n in enumerate(nodes) if n['id'] == edge['source']), 0)
-            target_idx = next((i for i, n in enumerate(nodes) if n['id'] == edge['target']), 0)
-            
-            # Posições circulares simples
-            import math
-            angle_source = 2 * math.pi * source_idx / len(nodes)
-            angle_target = 2 * math.pi * target_idx / len(nodes)
-            
-            x0, y0 = math.cos(angle_source), math.sin(angle_source)
-            x1, y1 = math.cos(angle_target), math.sin(angle_target)
-            
-            edge_trace.append(
-                go.Scatter(
-                    x=[x0, x1, None],
-                    y=[y0, y1, None],
-                    mode='lines',
-                    line=dict(width=edge['weight']/5, color='#888'),
-                    hoverinfo='none',
-                    showlegend=False
-                )
-            )
-        
-        # Nós
-        import math
-        node_x = [math.cos(2 * math.pi * i / len(nodes)) for i in range(len(nodes))]
-        node_y = [math.sin(2 * math.pi * i / len(nodes)) for i in range(len(nodes))]
-        node_text = [n['id'] for n in nodes]
-        node_size = [n['size'] for n in nodes]
-        
-        node_trace = go.Scatter(
-            x=node_x,
-            y=node_y,
-            mode='markers+text',
-            text=node_text,
-            textposition="top center",
-            marker=dict(
-                size=node_size,
-                color='#1f77b4',
-                line=dict(width=2, color='white')
-            ),
-            hovertemplate='<b>%{text}</b><extra></extra>'
-        )
-        
-        # Criar figura
-        fig = go.Figure(data=edge_trace + [node_trace])
-        fig.update_layout(
-            title="Grafo de Interações entre Jogadores",
-            showlegend=False,
-            hovermode='closest',
-            height=600,
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            template=CHART_THEME
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Nenhuma rede de interações disponível com os filtros atuais")
-    
-    st.divider()
-    
-    # === SEÇÃO 3: TOP INTERAÇÕES ===
-    st.subheader("🤝 Top Interações")
-    
-    interactions = social_metrics.get('interactions', [])
-    
+    st.subheader("🤝 Top Interactions")
+    interactions = s_metrics.get('interactions', [])
     if interactions:
-        df_interactions = pd.DataFrame(interactions[:20])  # Top 20
-        
+        df = pd.DataFrame(interactions[:20])
         fig = px.bar(
-            df_interactions,
-            x='count',
-            y=df_interactions.apply(lambda row: f"{row['player1']} ↔ {row['player2']}", axis=1),
-            orientation='h',
-            title="Pares com Mais Interações",
-            labels={'x': 'Interações', 'y': 'Jogadores'},
-            color='count',
-            color_continuous_scale='Blues'
+            df, x='count',
+            y=df.apply(lambda r: f"{r['player1']} ↔ {r['player2']}", axis=1),
+            orientation='h', title="Top Interaction Pairs", labels={'x':'Count', 'y':'Pair'},
+            color='count', color_continuous_scale='Blues'
         )
         fig.update_layout(height=500, template=CHART_THEME)
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Tabela detalhada
-        with st.expander("📋 Ver Todas as Interações"):
-            st.dataframe(
-                df_interactions,
-                use_container_width=True,
-                column_config={
-                    "player1": "Jogador 1",
-                    "player2": "Jogador 2",
-                    "count": st.column_config.NumberColumn("Interações", format="%d")
-                }
-            )
     else:
-        st.info("Nenhuma interação encontrada com os filtros atuais")
+        st.info("No interactions match criteria.")
+
+# ==============================================================================
+# MAIN ENTRY POINT
+# ==============================================================================
 
 def render_epicbrain_panel():
-    """
-    Renderiza o painel completo do EpicBrain
-    """
-    st.title("🧠 EpicBrain - Painel de Controle")
-    st.markdown("*Monitoramento e análise do servidor Ultima Online*")
+    """Main function to render the EpicBrain Panel."""
+    ui.apply_metric_style()
     
-    # Inicializar cliente
     client = EpicBrainClient()
+    connected = client.test_connection()
     
-    # Testar conexão
-    with st.sidebar:
-        st.subheader("🔌 Status da Conexão")
-        
-        if client.test_connection():
-            st.success("✅ Conectado à API")
-        else:
-            st.error("❌ API não disponível")
-            st.info(f"Tentando conectar em: `{client.base_url}`")
-            st.markdown("Verifique `epicbrain_config.py`")
-        
-        st.divider()
-        
-        # Auto-refresh
-        if AUTO_REFRESH_ENABLED:
-            st.checkbox(
-                "🔄 Auto-atualizar",
-                value=True,
-                help=f"Atualiza a cada {REFRESH_INTERVAL}s",
-                key="auto_refresh"
-            )
+    # Clear Cache Logic (Manual)
+    if st.session_state.get("clear_cache_trigger"):
+        st.cache_data.clear()
+        st.session_state.clear_cache_trigger = False
     
-    # Abas principais
-    tab1, tab2, tab3 = st.tabs([
-        "📊 Dashboard Executivo",
-        "🗺️ Mapa de Atividade",
-        "💬 Insights Sociais"
-    ])
+    def manual_refresh():
+        st.session_state.clear_cache_trigger = True
+        st.rerun()
+
+    ui.render_header_with_refresh(
+        "🧠 EpicBrain Panel",
+        "Advanced Analytics & Monitoring",
+        manual_refresh
+    )
+
+    ui.render_connection_sidebar(
+        "Connection Status",
+        connected,
+        client.base_url,
+        AUTO_REFRESH_ENABLED,
+        REFRESH_INTERVAL,
+        help_text="Check `epicbrain_config.py`"
+    )
+
+    tab1, tab2, tab3 = st.tabs(["📊 Executive", "🗺️ Activity Map", "💬 Social Insights"])
     
     with tab1:
         render_dashboard_tab(client)
-    
     with tab2:
         render_activity_map_tab(client)
-    
     with tab3:
         render_social_insights_tab(client)
-    
-    # Auto-refresh
-    if AUTO_REFRESH_ENABLED and st.session_state.get('auto_refresh', False):
-        import time
-        time.sleep(REFRESH_INTERVAL)
-        st.rerun()
+
+    ui.handle_auto_refresh("Connection Status", REFRESH_INTERVAL)
